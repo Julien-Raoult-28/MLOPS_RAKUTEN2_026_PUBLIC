@@ -1,3 +1,13 @@
 # Modèles entraînés
 models/*.pkl
 models/*.joblib
+
+
+# Quand tous le monde aura synchronisé le repo on pourra ajouter un gitignore sur le dossier main/data/ 
+# Pour éviter de charger à chaque fois les data
+#⚠️ Si tu as déjà push le dossier data, il faut le retirer du suivi Git
+# git rm -r --cached data
+# git commit -m "remove data from repository"
+# git push
+# dossier main/data/
+#data/

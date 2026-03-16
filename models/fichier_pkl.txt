@@ -1,1 +1,1 @@
-ici seront stocké les fichier .pkl et .joblib
+ici seront stocké les fichiers .pkl et .joblib
