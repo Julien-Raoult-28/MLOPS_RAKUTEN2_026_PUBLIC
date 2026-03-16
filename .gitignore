@@ -1,0 +1,3 @@
+# Modèles entraînés
+models/*.pkl
+models/*.joblib
