@@ -9,5 +9,15 @@ models/*.joblib
 # git rm -r --cached data
 # git commit -m "remove data from repository"
 # git push
-# dossier main/data/
-#data/
+# dossier main/data/raw/
+#data/raw/
+
+
+#2️⃣ Si le dossier est déjà versionné
+#Git ignore seulement les nouveaux fichiers.
+#Si data/raw est déjà dans le repo, il faut le retirer du suivi :
+#git rm -r --cached data/raw
+#Puis :
+#git add .gitignore
+#git commit -m "ignore raw data folder"
+#git push
