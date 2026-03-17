@@ -1,0 +1,21 @@
+mettre le fichier api.py qui charge le modele .plk
+
+exemple
+from fastapi import FastAPI
+import joblib
+
+app = FastAPI()
+
+features, model = joblib.load("models/model.joblib")
+
+@app.get("/")
+def home():
+    return {"message": "Rakuten classifier API"}
+
+@app.post("/predict")
+def predict(text: str):
+
+    X = features.transform([text])
+    pred = model.predict(X)
+
+    return {"prediction": int(pred[0])}
