@@ -2,7 +2,6 @@
 ```
 FEV26-CMLOPS-RAKUTEN/
 │
-├── api/
 │
 ├── data/
 │   ├── processed/              # données préparées
@@ -25,6 +24,13 @@ FEV26-CMLOPS-RAKUTEN/
 │   │
 │   └── models/                # code de génération des modèles
 │       └── 1.2_model_prediction.py
+│   │
+│   └── api/                # code de génération des modèles
+│       └── main.py
+│       └── api.txt
+│   │
+│   └── features/                
+│       └── text_features.py   #fonction pour TF-IDF
 │
 ├── requirements.txt
 ├── LICENSE

@@ -1,0 +1,20 @@
+mettre le fichier api.py qui charge le modele .plk
+
+▶️ Lancer l’API
+
+Dans ton terminal :
+
+python -m uvicorn src.api.main:app --reload
+
+
+🌐 Tester dans le navigateur (copier coller dans url)
+
+👉 Swagger auto généré :
+http://127.0.0.1:8000/docs
+
+
+🧪 Exemple de test JSON
+{
+  "designation": "Piscine bestway tubulaire",
+  "description": "Piscine de 3m de diamètre avec filtre et perche"
+}
