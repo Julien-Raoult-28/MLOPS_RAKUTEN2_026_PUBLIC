@@ -1,1 +1,1 @@
-ici les codes d'entrainement du modele
+ici les codes permettant de générer le fichier .pkl
