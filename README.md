@@ -1,3 +1,5 @@
+## 📁 Structure du projet
+```
 FEV26-CMLOPS-RAKUTEN/
 │
 ├── api/
@@ -28,3 +30,4 @@ FEV26-CMLOPS-RAKUTEN/
 ├── LICENSE
 ├── .gitignore
 └── README.md
+```
