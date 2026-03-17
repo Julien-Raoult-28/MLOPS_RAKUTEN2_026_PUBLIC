@@ -6,38 +6,14 @@ import numpy as np
 import joblib
 import re
 
+import mlflow
+import mlflow.sklearn
+
 from sklearn.pipeline import Pipeline
 from sklearn.compose import ColumnTransformer
 from sklearn.preprocessing import FunctionTransformer
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.svm import LinearSVC
-
-# ============================================================
-# 1) Chargement des données complètes
-# ============================================================
-
-X_path = r"C:\Users\Mproo\Documents\Cours_DATASCIENTEST\FEV26-CMLOPS-RAKUTEN\data\raw\X_train_update.csv"
-Y_path = r"C:\Users\Mproo\Documents\Cours_DATASCIENTEST\FEV26-CMLOPS-RAKUTEN\data\processed\Y_train_encode.csv"
-
-X = pd.read_csv(X_path)
-Y = pd.read_csv(Y_path)
-
-# Merge sur "Unnamed: 0"
-df = X.merge(Y, on="Unnamed: 0")
-print("Shape après merge :", df.shape)
-print("Colonnes :", df.columns)
-
-# ============================================================
-# 2) Définir X et y
-# ============================================================
-
-y = df["prdtypecode_encoded"]  # target encodée
-X = df.drop(columns=["prdtypecode_encoded"])
-
-# ============================================================
-# 3) TF-IDF et Feature Engineering
-# ============================================================
-
 
 from src.features.text_features import (
     get_designation,
@@ -47,10 +23,29 @@ from src.features.text_features import (
 )
 
 # ============================================================
-# TF-IDF
+# MLflow
 # ============================================================
 
-# ----------- WORD TF-IDF -----------
+mlflow.set_experiment("rakuten_classification")
+
+# ============================================================
+# 1) Chargement des données
+# ============================================================
+
+X_path = r"C:\Users\Mproo\Documents\Cours_DATASCIENTEST\FEV26-CMLOPS-RAKUTEN\data\raw\X_train_update.csv"
+Y_path = r"C:\Users\Mproo\Documents\Cours_DATASCIENTEST\FEV26-CMLOPS-RAKUTEN\data\processed\Y_train_encode.csv"
+
+X = pd.read_csv(X_path)
+Y = pd.read_csv(Y_path)
+
+df = X.merge(Y, on="Unnamed: 0")
+
+y = df["prdtypecode_encoded"]
+X = df.drop(columns=["prdtypecode_encoded"])
+
+# ============================================================
+# 2) Pipeline
+# ============================================================
 
 word_tfidf_designation = TfidfVectorizer(
     max_features=50000,
@@ -68,9 +63,6 @@ word_tfidf_description = TfidfVectorizer(
     sublinear_tf=True
 )
 
-
-# ----------- CHAR TF-IDF -----------
-
 char_tfidf_designation = TfidfVectorizer(
     analyzer="char_wb",
     ngram_range=(3,5),
@@ -84,10 +76,6 @@ char_tfidf_description = TfidfVectorizer(
     min_df=3,
     lowercase=True
 )
-
-# ============================================================
-# COLUMN TRANSFORMER
-# ============================================================
 
 features = ColumnTransformer([
 
@@ -119,39 +107,50 @@ features = ColumnTransformer([
  ]),
  ["description"]),
 
-    ("first_words",
-     Pipeline([
-         ("extract", FunctionTransformer(first_words_series, validate=False)),
-         ("tfidf", TfidfVectorizer())
-     ]),
-     ["designation"]),
+("first_words",
+ Pipeline([
+     ("extract", FunctionTransformer(first_words_series, validate=False)),
+     ("tfidf", TfidfVectorizer())
+ ]),
+ ["designation"]),
 
-    ("numbers_units",
-     Pipeline([
-         ("extract", FunctionTransformer(numbers_units_series, validate=False)),
-         ("tfidf", TfidfVectorizer())
-     ]),
-     ["designation"]),
+("numbers_units",
+ Pipeline([
+     ("extract", FunctionTransformer(numbers_units_series, validate=False)),
+     ("tfidf", TfidfVectorizer())
+ ]),
+ ["designation"]),
 ])
 
-# Pipeline final
 pipe = Pipeline([
     ("features", features),
     ("clf", LinearSVC(C=1, class_weight="balanced", max_iter=20000, random_state=42))
 ])
 
 # ============================================================
-# 4) Entraînement final
+# 3) ENTRAINEMENT + MLFLOW
 # ============================================================
 
-print("==> Entraînement final sur toutes les données...")
-pipe.fit(X, y)
-print("✅ Modèle entraîné")
+with mlflow.start_run():
 
-# ============================================================
-# 5) Sauvegarde du modèle final
-# ============================================================
+    print("==> Entraînement final sur toutes les données...")
+    pipe.fit(X, y)
+    print("✅ Modèle entraîné")
 
-model_path = r"C:\Users\Mproo\Documents\Cours_DATASCIENTEST\FEV26-CMLOPS-RAKUTEN\models\1.3_rakuten_model_final.pkl"
-joblib.dump(pipe, model_path, compress=3)
-print("✅ Modèle final sauvegardé :", model_path)
+    # 👉 Log des paramètres
+    mlflow.log_param("model", "LinearSVC")
+    mlflow.log_param("C", 1)
+    mlflow.log_param("max_iter", 20000)
+
+    # ⚠️ Pas de métrique ici car pas de validation
+    # (tu pourras en ajouter plus tard avec un train/val)
+
+    # 👉 Sauvegarde classique (.pkl)
+    model_path = r"C:\Users\Mproo\Documents\Cours_DATASCIENTEST\FEV26-CMLOPS-RAKUTEN\models\1.3_rakuten_model_final.pkl"
+    joblib.dump(pipe, model_path, compress=3)
+    print("✅ Modèle final sauvegardé :", model_path)
+
+    # 👉 Sauvegarde MLflow
+    mlflow.sklearn.log_model(pipe, "model")
+
+    print("✅ Modèle loggé dans MLflow")
