@@ -1,6 +1,7 @@
 # Modèles entraînés
 models/*.pkl
 models/*.joblib
+mlruns/*.pkl
 
 
 # Quand tous le monde aura synchronisé le repo on pourra ajouter un gitignore sur le dossier main/data/ 
