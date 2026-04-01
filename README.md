@@ -5,28 +5,24 @@ FEV26-CMLOPS-RAKUTEN/
 ├── GITHUB.txt
 ├── README.md
 ├── data
-│   ├── processed
-│   │   ├── Y_train_encode.csv
-│   │   └── processed.txt
-│   └── raw
+│   ├── processed  # données modifiées
+│   │   └── Y_train_encode.csv
+│   └── raw  # ici les données brut
 │       ├── X_test_update.csv
 │       ├── X_train_update.csv
-│       ├── Y_train_CVw08PX.csv
-│       └── raw.txt
-├── models
-│   ├── 1.3_rakuten_model_final.pkl
-│   └── fichier_pkl.txt
+│       └──  Y_train_CVw08PX.csv
+├── models   #ici seront stocké les fichiers .pkl et .joblib
+│   └── 1.3_rakuten_model_final.pkl
 ├── notebook
 │   ├── Entrainement_test.ipynb
 │   ├── arborescence.py
 │   ├── grid_search.ipynb
-│   └── info.txt
 └── src
     ├── api
     │   ├── api.txt
     │   └── main.py
-    ├── data
-    │   └── data_pre_processing.txt
+    ├── data  # code python du pre processing data
+    │   └── 
     ├── features
     │   └── text_features.py   #fonction pour TF-IDF
     └── models
