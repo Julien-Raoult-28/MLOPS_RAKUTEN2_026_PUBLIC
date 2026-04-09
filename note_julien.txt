@@ -1,5 +1,0 @@
-lancer mlflow : mlflow ui 
-
-lancer un modele et synchro mlflow
-- avoir un terminal ouvert avec mlflow ui 
-- et lancer le model avec python -m src.models.model_prediction_TFIDF_SVC

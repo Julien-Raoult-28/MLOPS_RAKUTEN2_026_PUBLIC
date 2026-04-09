@@ -2,7 +2,6 @@
 ```
 FEV26-CMLOPS-RAKUTEN/
 ├── .gitignore
-├── GITHUB.txt
 ├── README.md
 ├── data
 │   ├── processed  # données modifiées
@@ -25,7 +24,6 @@ FEV26-CMLOPS-RAKUTEN/
     │   └── 
     ├── features
     │   └── text_features.py   #fonction pour TF-IDF
-    └── models
-        ├── 1_2_model_prediction.py
-        └── src_models.txt
+    └── models    # ici les codes permettant de générer le fichier .pkl
+        └── 1_2_model_prediction.py
 ```
