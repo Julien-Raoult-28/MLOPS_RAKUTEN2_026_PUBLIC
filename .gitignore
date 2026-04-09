@@ -3,7 +3,7 @@
 mlruns/
 
 # Models
-#*.pkl
+*.pkl
 *.joblib
 
 # Data
