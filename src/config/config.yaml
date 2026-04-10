@@ -1,0 +1,20 @@
+mode: full    # fast | full
+
+data:
+  raw_x: "data/raw/X_train_update.csv"
+  raw_y: "data/processed/Y_train_encode.csv"
+  sample_size_fast: 2000
+
+model:
+  C: 1
+  max_iter_fast: 500
+  max_iter_full: 20000
+  max_features_word_fast: 500
+  max_features_word_full: 20000
+  max_features_desc_fast: 800
+  max_features_desc_full: 30000
+
+
+mlflow:
+  tracking_uri: "file:///C:/Users/angel/Desktop/A/Datascientest/Projet MLOps/FEV26-CMLOPS-RAKUTEN/mlruns"
+  experiment_name: "rakuten_classification"
