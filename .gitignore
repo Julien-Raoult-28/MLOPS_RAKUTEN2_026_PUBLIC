@@ -13,6 +13,8 @@ data/
 __pycache__/
 *.pyc
 
+.venv/
+venv/
 
 # Quand tous le monde aura synchronisé le repo on pourra ajouter un gitignore sur le dossier main/data/ 
 # Pour éviter de charger à chaque fois les data

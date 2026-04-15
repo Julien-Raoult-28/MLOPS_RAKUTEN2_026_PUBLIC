@@ -1,0 +1,4 @@
+Model: TF-IDF + LinearSVC
+Mode: full
+Accuracy: 0.8629
+F1-score: 0.8626
