@@ -1,52 +1,115 @@
-from src.models.predict import load_model_from_mlflow, prepare_input, predict_label
+"""
+Service de prédiction pour l'API Rakuten.
+
+Ce module charge un modèle MLflow (via run_id ou via le Model Registry)
+et exécute une prédiction sur un produit décrit par :
+
+- designation : titre du produit
+- description : description textuelle
+
+Le service est compatible avec :
+- MLflow FileStore (runs:/)
+- MLflow Model Registry (models:/)
+- MLflow pyfunc (modèles génériques)
+
+Le backend MLflow utilisé est SQLite (mlflow.db), ce qui permet
+l'utilisation du Model Registry et du mode hybride dans l'API.
+"""
+
+import time
+from datetime import datetime
+import pandas as pd
 import mlflow
 
-def predict_product(designation: str, description: str, run_id: str):
+
+# ------------------------------------------------------------
+# Configuration MLflow (OBLIGATOIRE pour le mode hybride)
+# ------------------------------------------------------------
+mlflow.set_tracking_uri("sqlite:///mlflow.db")
+
+
+def load_model(run_id: str | None):
     """
-    Service métier : prédire la catégorie d'un produit.
-    - Vérifie les inputs
-    - Charge le modèle MLflow
-    - Prépare les données
-    - Retourne la prédiction
+    Charge un modèle MLflow.
+
+    Paramètres
+    ----------
+    run_id : str | None
+        - Si fourni : charge le modèle associé au run (runs:/)
+        - Si None : charge le modèle en Production dans le Model Registry
+
+    Retour
+    ------
+    mlflow.pyfunc.PyFuncModel
+        Modèle MLflow prêt à exécuter une prédiction.
     """
 
-    print(">>> predict_product() appelé")
-    print(">>> designation =", designation)
-    print(">>> description =", description)
-    print(">>> run_id =", run_id)
+    if run_id:
+        model_uri = f"runs:/{run_id}/model"
+    else:
+        model_uri = "models:/rakuten_classifier/Production"
 
-    # 1. Vérification simple des inputs
-    if not isinstance(designation, str) or not isinstance(description, str):
-        raise ValueError("Les champs 'designation' et 'description' doivent être des chaînes de caractères.")
+    return mlflow.pyfunc.load_model(model_uri)
 
-    if not run_id:
-        raise ValueError("Le run_id MLflow est obligatoire.")
 
-    # 2. Configurer MLflow
-    tracking_uri = "file:///C:/Users/angel/Desktop/A/Datascientest/Projet MLOps/FEV26-CMLOPS-RAKUTEN/mlruns"
-    print(">>> tracking_uri =", tracking_uri)
+def predict_product(designation: str, description: str, run_id: str | None):
+    """
+    Effectue une prédiction via un modèle MLflow (pyfunc).
 
-    mlflow.set_tracking_uri(tracking_uri)
+    Paramètres
+    ----------
+    designation : str
+        Titre du produit.
+    description : str
+        Description textuelle du produit.
+    run_id : str | None
+        Identifiant MLflow pour charger un modèle spécifique.
+        Si None, charge le modèle en Production.
 
-    # 3. Charger le modèle MLflow
-    print(">>> Chargement du modèle MLflow...")
-    model = load_model_from_mlflow(run_id)
-    print(">>> Modèle chargé avec succès")
+    Retour
+    ------
+    dict
+        Résultat structuré contenant :
+        - les données d'entrée
+        - le code de prédiction
+        - le label métier
+        - le temps d'inférence
+        - les métadonnées MLflow
+    """
 
-    # 4. Préparer les données
-    print(">>> Préparation des données...")
-    X = prepare_input(designation, description)
-    print(">>> Données préparées :", X)
+    try:
+        # Charger le modèle MLflow
+        model = load_model(run_id)
 
-    # 5. Prédire
-    print(">>> Prédiction en cours...")
-    prediction = predict_label(model, X)
-    print(">>> Prédiction OK :", prediction)
+        # Préparer les données pour pyfunc
+        df = pd.DataFrame([{
+            "designation": designation,
+            "description": description
+        }])
 
-    # 6. Retourner le résultat
-    return {
-        "designation": designation,
-        "description": description,
-        "prediction": prediction,
-        "run_id": run_id
-    }
+        # Exécuter la prédiction
+        start = time.time()
+        pred = model.predict(df)
+        end = time.time()
+
+        # Le modèle sklearn renvoie un array numpy
+        prediction_code = int(pred[0])
+        label = str(prediction_code)  # mapping métier simplifié
+
+        return {
+            "designation": designation,
+            "description": description,
+            "prediction": {
+                "prediction_code": prediction_code,
+                "label": label,
+                "confidence": None,  # LinearSVC ne fournit pas de probas
+                "inference_time_ms": round((end - start) * 1000, 3),
+                "model_uuid": "unknown",
+                "model_version": "1",
+                "timestamp": datetime.utcnow().isoformat() + "Z",
+            },
+            "run_id": run_id,
+        }
+
+    except Exception as e:
+        raise RuntimeError(f"Erreur lors de la prédiction : {e}")

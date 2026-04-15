@@ -1,23 +1,33 @@
 """
 Module d'entraînement du modèle TF-IDF + LinearSVC avec suivi MLflow.
-Version modulaire + configuration YAML + compatible CLI.
 
-Étapes :
+Ce script implémente un pipeline d'entraînement complet, modulaire et
+configurable via un fichier YAML. Il est compatible avec une exécution
+en ligne de commande (CLI) et respecte les bonnes pratiques MLOps.
+
+Étapes principales :
 1. Chargement de la configuration
 2. Chargement des données
 3. Construction du pipeline
 4. Séparation train/validation
-5. Entraînement
-6. Évaluation
-7. Logging MLflow (params, metrics, artifacts, modèle)
+5. Entraînement du modèle
+6. Évaluation (accuracy, F1, precision, recall)
+7. Logging MLflow (paramètres, métriques, artefacts, modèle)
+
+Artefacts générés :
+- Matrice de confusion (PNG)
+- Rapport de classification (TXT)
+- Model Card (TXT)
+- Résumé du pipeline (TXT)
+- Modèle sérialisé (MLflow + sklearn)
+
+IMPORTANT :
+Ce script utilise MLflow avec un backend SQLite (mlflow.db),
+ce qui permet l'utilisation du Model Registry et du mode hybride
+dans l'API FastAPI.
 """
 
-# ============================================================
-# IMPORTS
-# ============================================================
-
 from pathlib import Path
-import joblib
 import mlflow
 import mlflow.sklearn
 import matplotlib.pyplot as plt
@@ -38,17 +48,26 @@ from src.data.load_data import load_data
 from src.models.pipeline import build_pipeline
 
 
-# ============================================================
-# FONCTION PRINCIPALE D'ENTRAÎNEMENT
-# ============================================================
-
-def train(mode: str = None):
+def train(mode: str = None) -> None:
     """
-    Entraîne le modèle selon le mode (fast/full) et logge tout dans MLflow.
+    Entraîne le modèle TF-IDF + LinearSVC selon le mode choisi (fast/full)
+    et logge l'ensemble des artefacts dans MLflow.
+
+    Paramètres
+    ----------
+    mode : str, optionnel
+        Mode d'entraînement ("fast" ou "full").
+        Si None, le mode défini dans config.yaml est utilisé.
+
+    Retour
+    ------
+    None
+        Les résultats sont enregistrés dans MLflow et les artefacts
+        sont sauvegardés dans le dossier `models/`.
     """
 
     # --------------------------------------------------------
-    # 1) Charger la configuration
+    # 1) Chargement de la configuration
     # --------------------------------------------------------
     config = load_config()
 
@@ -58,50 +77,54 @@ def train(mode: str = None):
     print(f"🚀 Mode d'entraînement : {config['mode'].upper()}")
 
     # --------------------------------------------------------
-    # CONFIG MLflow — CORRECTION MAJEURE
+    # 2) Configuration MLflow (SQLite + Model Registry)
     # --------------------------------------------------------
-    # On force MLflow à utiliser le dossier mlruns/ comme tracking URI
-    # (et non mlflow.db)
-    BASE_DIR = Path(__file__).resolve().parents[2]
-    mlruns_path = BASE_DIR / "mlruns"
-
-    mlflow.set_tracking_uri(f"file:///{mlruns_path.as_posix()}")
+    # Ce backend permet d'enregistrer le modèle dans le Model Registry
+    mlflow.set_tracking_uri("sqlite:///mlflow.db")
     mlflow.set_experiment(config["mlflow"]["experiment_name"])
 
+    base_dir = Path(__file__).resolve().parents[2]
+
     # --------------------------------------------------------
-    # 2) Chargement des données
+    # 3) Chargement des données
     # --------------------------------------------------------
     print("📥 Chargement des données...")
     X, y = load_data(config)
 
     # --------------------------------------------------------
-    # 3) Séparation train/validation
+    # 4) Séparation train/validation
     # --------------------------------------------------------
     print("✂️ Séparation train/validation...")
     X_train, X_val, y_train, y_val = train_test_split(
-        X, y, test_size=0.2, random_state=42, stratify=y
+        X,
+        y,
+        test_size=0.2,
+        random_state=42,
+        stratify=y,
     )
 
     # --------------------------------------------------------
-    # 4) Construction du pipeline
+    # 5) Construction du pipeline
     # --------------------------------------------------------
     print("🔧 Construction du pipeline...")
     pipeline = build_pipeline(config)
 
     # --------------------------------------------------------
-    # 5) Entraînement + MLflow
+    # 6) Entraînement + MLflow
     # --------------------------------------------------------
     print("🚀 Début de l'entraînement...")
 
-    with mlflow.start_run():
+    with mlflow.start_run() as run:
 
         mlflow.set_tag("mode", config["mode"])
         mlflow.set_tag("model_type", "LinearSVC")
 
+        print(f"📌 run_id MLflow : {run.info.run_id}")
+
         pipeline.fit(X_train, y_train)
 
         # ----------------------------------------------------
-        # 6) Évaluation
+        # 7) Évaluation
         # ----------------------------------------------------
         print("📊 Évaluation...")
         y_pred = pipeline.predict(X_val)
@@ -115,21 +138,18 @@ def train(mode: str = None):
         print(f"F1-score : {f1:.4f}")
 
         # ----------------------------------------------------
-        # 7) Logging MLflow
+        # Logging MLflow : paramètres et métriques
         # ----------------------------------------------------
-
-        # PARAMS
         mlflow.log_param("C", config["model"]["C"])
         mlflow.log_param("mode", config["mode"])
 
-        # METRICS
         mlflow.log_metric("accuracy", acc)
         mlflow.log_metric("f1_score", f1)
         mlflow.log_metric("precision_weighted", precision)
         mlflow.log_metric("recall_weighted", recall)
 
         # ----------------------------------------------------
-        # Artefact : Confusion Matrix
+        # Artefact : matrice de confusion
         # ----------------------------------------------------
         cm = confusion_matrix(y_val, y_pred)
 
@@ -143,10 +163,10 @@ def train(mode: str = None):
         plt.close()
 
         # ----------------------------------------------------
-        # Artefact : Classification Report
+        # Artefact : classification report
         # ----------------------------------------------------
         report = classification_report(y_val, y_pred)
-        report_path = BASE_DIR / "models" / "classification_report.txt"
+        report_path = base_dir / "models" / "classification_report.txt"
 
         with open(report_path, "w") as f:
             f.write(report)
@@ -154,9 +174,9 @@ def train(mode: str = None):
         mlflow.log_artifact(report_path)
 
         # ----------------------------------------------------
-        # Artefact : Model Card
+        # Artefact : model card
         # ----------------------------------------------------
-        model_card_path = BASE_DIR / "models" / "model_card.txt"
+        model_card_path = base_dir / "models" / "model_card.txt"
         with open(model_card_path, "w") as f:
             f.write("Model: TF-IDF + LinearSVC\n")
             f.write(f"Mode: {config['mode']}\n")
@@ -166,20 +186,21 @@ def train(mode: str = None):
         mlflow.log_artifact(model_card_path)
 
         # ----------------------------------------------------
-        # Artefact : Pipeline Summary
+        # Artefact : pipeline summary
         # ----------------------------------------------------
-        pipeline_path = BASE_DIR / "models" / "pipeline_summary.txt"
+        pipeline_path = base_dir / "models" / "pipeline_summary.txt"
         with open(pipeline_path, "w") as f:
             f.write(str(pipeline))
 
         mlflow.log_artifact(pipeline_path)
 
         # ----------------------------------------------------
-        # SAUVEGARDE DU MODÈLE — CORRECTION VALIDÉE
+        # Sauvegarde du modèle
         # ----------------------------------------------------
         mlflow.sklearn.log_model(pipeline, "model")
 
         print("✅ Modèle sauvegardé et loggé dans MLflow.")
+        print(f"📌 Nouveau run_id (SQLite) : {run.info.run_id}")
 
 
 if __name__ == "__main__":
