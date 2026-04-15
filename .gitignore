@@ -1,36 +1,40 @@
-# Modèles entraînés
-# MLflow
+# ============================
+#   MLflow & Models
+# ============================
 mlruns/
-
-# Models
 *.pkl
 *.joblib
+mlflow.db
 
-# Data
+# ============================
+#   Data
+# ============================
 data/
 
-# Python
+# ============================
+#   Python
+# ============================
 __pycache__/
 *.pyc
 
+# ============================
+#   Virtual Environments
+# ============================
 .venv/
 venv/
 
-# Quand tous le monde aura synchronisé le repo on pourra ajouter un gitignore sur le dossier main/data/ 
+# ============================
+#   Notes internes (optionnel)
+# ============================
+# Quand tout le monde aura synchronisé le repo on pourra ajouter un gitignore sur le dossier main/data/
 # Pour éviter de charger à chaque fois les data
-#⚠️ Si tu as déjà push le dossier data, il faut le retirer du suivi Git
+# ⚠️ Si tu as déjà push le dossier data, il faut le retirer du suivi Git :
 # git rm -r --cached data
 # git commit -m "remove data from repository"
 # git push
-# dossier main/data/raw/
-#data/raw/
 
-
-#2️⃣ Si le dossier est déjà versionné
-#Git ignore seulement les nouveaux fichiers.
-#Si data/raw est déjà dans le repo, il faut le retirer du suivi :
-#git rm -r --cached data/raw
-#Puis :
-#git add .gitignore
-#git commit -m "ignore raw data folder"
-#git push
+# Si data/raw est déjà versionné :
+# git rm -r --cached data/raw
+# git add .gitignore
+# git commit -m "ignore raw data folder"
+# git push
