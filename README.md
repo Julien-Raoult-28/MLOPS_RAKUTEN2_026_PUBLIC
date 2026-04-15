@@ -1,377 +1,211 @@
-Angella…  
-Voici **la version mise à jour, complète, propre, professionnelle et friendly** de ton **README officiel**.  
-Il est structuré, clair, pédagogique, et reflète parfaitement ton pipeline MLOps actuel (avec API, prédiction enrichie, mapping métier, etc.).
-
-Tu peux le coller tel quel dans ton repo GitHub.
+# 📘 **Projet MLOps – Classification Rakuten**  
+### **API FastAPI hybride MLflow + SQLite – Version stable v1.0.0**
 
 ---
 
-# 📘 **README — Projet MLOps Rakuten Classification**  
-### *Pipeline complet : entraînement, évaluation, prédiction, MLflow, CLI Typer, API FastAPI*  
----
+## 🧭 **1. Présentation du projet**
 
-# 🟦 1. Présentation du projet
+Ce projet implémente une **API de classification de produits Rakuten**, basée sur un modèle MLflow et une architecture MLOps moderne.  
+L’API permet de prédire la catégorie d’un produit à partir de sa description textuelle, avec un pipeline complet :
 
-Ce projet implémente un **pipeline MLOps complet** pour classifier les produits Rakuten à partir de texte (désignation + description).
+- **FastAPI** pour l’exposition du service  
+- **MLflow Tracking + Model Registry** pour la gestion des modèles  
+- **SQLite** pour le mapping métier (catégorie → libellé)  
+- **Pydantic v2** pour la validation stricte des entrées  
+- **Sécurité par token**  
+- **Tests unitaires complets (pytest)**  
 
-Il inclut :
-
-- un pipeline **TF‑IDF + modèle linéaire** encapsulé dans sklearn  
-- un suivi complet avec **MLflow** (params, metrics, artefacts, modèle)  
-- un mode **FAST/FULL** pour accélérer le développement  
-- un **CLI professionnel (Typer)** pour entraîner, évaluer et prédire  
-- une **API FastAPI** pour exposer le modèle  
-- une **réponse JSON enrichie** (label métier, temps d’inférence, métadonnées…)  
-- une architecture **modulaire, propre, industrialisable**
-
-Ce projet est conçu pour être **pédagogique**, **reproductible**, **traçable**, et **prêt pour la production**.
+La version **v1.0.0** est la première version stable, testée et prête pour la soutenance.
 
 ---
 
-# 🟩 2. Architecture du projet
+## 🏗️ **2. Architecture du projet**
 
 ```
-FEV26-CMLOPS-RAKUTEN/
+project/
 │
-├── data/                     # Données brutes / intermédiaires / finales
-├── mlruns/                   # Tracking MLflow (runs, artefacts, modèles)
+├── api/
+│   ├── main.py               # API FastAPI
+│   ├── schemas.py            # Pydantic v2
+│   ├── security.py           # Token
+│   ├── mlflow_loader.py      # Chargement modèle MLflow
+│   ├── sqlite_backend.py     # Mapping métier
+│   └── utils.py              # Fonctions auxiliaires
 │
-├── src/
-│   ├── data/
-│   │   └── load_data.py
-│   │
-│   ├── features/
-│   │   └── text_features.py
-│   │
-│   ├── models/
-│   │   ├── train.py          # Entraînement + MLflow
-│   │   ├── evaluate.py       # Évaluation via run_id
-│   │   └── predict.py        # Prédiction enrichie
-│   │
-│   ├── services/
-│   │   └── prediction_service.py  # Logique métier API
-│   │
-│   ├── api/
-│   │   └── app.py            # API FastAPI
-│   │
-│   ├── utils/
-│   │   └── config_loader.py
-│   │
-│   └── cli.py                # ⭐ CLI complet (Typer)
+├── tests/
+│   └── test_api.py           # 9 tests unitaires
 │
-├── config.yaml               # Configuration globale
-└── README.md
+├── mlruns/                   # MLflow Tracking (ignoré par Git)
+├── mlflow.db                 # Base SQLite MLflow
+├── data/                     # Données (ignorées par Git)
+│
+├── requirements.txt
+├── README.md
+└── .gitignore
 ```
 
 ---
 
-# 🟧 3. Architecture MLOps (pipeline visuel)
+## ⚙️ **3. Installation**
+
+### **Créer un environnement virtuel**
 
 ```
-config.yaml
-     │
-     ▼
-Chargement des données (load_data.py)
-     │
-     ▼
-Feature engineering (TF-IDF + features custom)
-     │
-     ▼
-Pipeline sklearn (TF-IDF + modèle linéaire)
-     │
-     ▼
-Entraînement (train.py)
-     │
-     ▼
-Évaluation (evaluate.py)
-     │
-     ▼
-MLflow tracking (params, metrics, artefacts, modèle)
-     │
-     ▼
-Prédiction (predict.py / CLI / API FastAPI)
-```
-
----
-
-# 🟨 4. Installation & Configuration
-
-## 1. Cloner le projet
-
-```bash
-git clone <repo>
-cd FEV26-CMLOPS-RAKUTEN
-```
-
-## 2. Créer et activer l’environnement virtuel
-
-```powershell
 python -m venv .venv
-.\.venv\Scripts\activate
+source .venv/bin/activate   # Linux/Mac
+.venv\Scripts\activate      # Windows
 ```
 
-## 3. Installer les dépendances
+### **Installer les dépendances**
 
-```bash
+```
 pip install -r requirements.txt
 ```
 
-## 4. Définir PYTHONPATH (IMPORTANT)
+---
 
-### PowerShell :
+## 🚀 **4. Lancer l’API**
 
-```powershell
-$env:PYTHONPATH = (Get-Location)
+```
+uvicorn api.main:app --reload
 ```
 
-### Pourquoi ?
+L’API sera disponible sur :
 
-Parce que Python ne sait pas automatiquement où se trouve `src/`.
-
-👉 *“Voici la racine du projet, cherche les modules ici.”*
-
-Sans cette ligne, les imports `from src...` échouent.
+👉 `http://127.0.0.1:8000` [(127.0.0.1 in Bing)](https://www.bing.com/search?q="http%3A%2F%2F127.0.0.1%3A8000%2F")  
+👉 Documentation Swagger : [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
 
 ---
 
-# 🟦 5. Configuration du projet (config.yaml)
+## 🔐 **5. Sécurité – Token obligatoire**
 
-Exemple :
+Toutes les requêtes doivent inclure :
 
-```yaml
-mode: fast
-
-mlflow:
-  tracking_uri: "file:./mlruns"
-  experiment_name: "rakuten_classification"
+```
+x-token: RAKUTEN_SECRET_123
 ```
 
-### Modes disponibles :
-
-| Mode | Description |
-|------|-------------|
-| **fast** | Petit échantillon → rapide pour tester |
-| **full** | Dataset complet → métriques réelles |
+Sinon → **401 Unauthorized**
 
 ---
 
-# 🟩 6. Lancer MLflow UI
+## 🧪 **6. Endpoints**
 
-Depuis **CMD (pas PowerShell)** :
+### **POST /predict**
 
-```cmd
-mlflow ui
-```
-
-Puis ouvrir :
-
-👉 [http://127.0.0.1:5000](http://127.0.0.1:5000)
-
----
-
-# 🟧 7. Utilisation du CLI complet (Typer)
-
-Le CLI est le **point d’entrée officiel** du projet.
-
-Toutes les commandes se lancent depuis la racine :
-
-```
-python -m src.cli <commande>
-```
-
----
-
-## ⭐ 1. Entraîner un modèle
-
-### Mode FAST
-
-```bash
-python -m src.cli train-cmd --mode fast
-```
-
-### Mode FULL
-
-```bash
-python -m src.cli train-cmd --mode full
-```
-
----
-
-## ⭐ 2. Évaluer un modèle MLflow
-
-```bash
-python -m src.cli evaluate-cmd <run_id>
-```
-
-Exemple :
-
-```bash
-python -m src.cli evaluate-cmd 6c6634389c2a42f09befd37794ae299a
-```
-
----
-
-## ⭐ 3. Faire une prédiction (CLI)
-
-```bash
-python -m src.cli predict-cmd \
-    --designation "Chaise en bois massif" \
-    --description "Chaise robuste en bois naturel" \
-    --run_id <run_id>
-```
-
----
-
-# 🟣 8. Utiliser l’API FastAPI
-
-## 1. Lancer l’API
-
-```bash
-uvicorn src.api.app:app --reload
-```
-
-## 2. Ouvrir Swagger
-
-👉 `http://127.0.0.1:8000/docs` [(127.0.0.1 in Bing)](https://www.bing.com/search?q="http%3A%2F%2F127.0.0.1%3A8000%2Fdocs")
-
-## 3. Tester `/predict`
-
-Entrer :
-
-- designation  
-- description  
-- run_id  
-
-Résultat :  
-Une réponse JSON **professionnelle** :
+#### **Entrée :**
 
 ```json
 {
-  "designation": "chaise bois",
-  "description": "chaise bois massif",
-  "prediction": {
-    "prediction_code": 13,
-    "label": "Maison",
-    "confidence": null,
-    "inference_time_ms": 57.3,
-    "timestamp": "2026-04-10T15:16:37Z"
-  },
-  "run_id": "1eb81543c0cc4b9c8d9cd5352d1fe57c"
+  "description": "Chaussures de sport pour homme",
+  "run_id": "optional"
+}
+```
+
+#### **Sortie :**
+
+```json
+{
+  "prediction": 10,
+  "label": "Sportswear",
+  "model_version": "v1.0.0",
+  "run_id_used": "xxxx"
 }
 ```
 
 ---
 
-# 🟫 9. Scripts principaux
+## 🧠 **7. Fonctionnement du modèle (hybride)**
 
-## 1. Entraînement (train.py)
+### ✔ **Cas 1 — run_id fourni**
+L’API charge **le modèle MLflow correspondant**.
 
-- charge config  
-- charge données  
-- construit pipeline TF‑IDF + modèle  
-- entraîne  
-- évalue  
-- logge dans MLflow :  
-  - paramètres  
-  - métriques  
-  - artefacts  
-  - modèle  
+### ✔ **Cas 2 — run_id absent**
+L’API charge **le modèle en Production** depuis le Model Registry.
 
-## 2. Évaluation (evaluate.py)
+### ✔ **Cas 3 — run_id invalide**
+Retourne une erreur propre :
 
-- recharge un modèle MLflow via run_id  
-- calcule les métriques  
-- logge les artefacts d’évaluation  
-
-## 3. Prédiction (predict.py)
-
-- recharge un modèle MLflow  
-- applique preprocessing + modèle  
-- renvoie :  
-  - code prédictif  
-  - libellé métier  
-  - temps d’inférence  
-  - timestamp  
-  - métadonnées modèle  
+```
+400 — Invalid run_id
+```
 
 ---
 
-# 🟪 10. Tips & Astuces MLOps
+## 🗄️ **8. Backend SQLite**
 
-### ✔ Toujours utiliser FAST pour tester  
-### ✔ Toujours définir PYTHONPATH  
-### ✔ Toujours logger params + metrics + artefacts  
-### ✔ Toujours encapsuler preprocessing + modèle dans un pipeline sklearn  
-### ✔ Toujours tester une prédiction manuelle  
-### ✔ Toujours séparer train / evaluate / predict  
-### ✔ Toujours utiliser un venv  
-### ✔ Toujours vérifier MLflow UI après un run  
-### ✔ Toujours convertir numpy.int64 → int avant JSON  
-### ✔ Toujours utiliser Path() pour les chemins  
+Le fichier `sqlite_backend.py` gère :
+
+- le mapping catégorie → libellé  
+- la récupération des labels  
+- la robustesse en cas de catégorie inconnue  
 
 ---
 
-# 🟥 11. Erreurs fréquentes (et comment les éviter)
+## 🧪 **9. Tests unitaires (pytest)**
 
-❌ Lancer MLflow UI dans PowerShell  
-→ utiliser CMD
+### ✔ 9 tests PASS :
 
-❌ Oublier PYTHONPATH  
-→ imports cassés
+- healthcheck  
+- token valide / invalide  
+- validation Pydantic (422)  
+- prédiction simple  
+- prédiction avec run_id  
+- prédiction sans run_id (fallback)  
+- erreurs MLflow  
+- robustesse texte long  
+- structure JSON complète  
 
-❌ Ne pas utiliser FAST  
-→ perte de temps énorme
+Lancer les tests :
 
-❌ Ne pas logger les artefacts  
-→ impossible de diagnostiquer
-
-❌ Mélanger preprocessing et modèle  
-→ impossible de déployer
-
-❌ Chemins absolus d’un autre PC  
-→ utiliser Path() + chemins relatifs
-
----
-
-# ⭐ 12. Roadmap MLOps (améliorations futures)
-
-### 🔥 API FastAPI (déjà implémentée)  
-→ prochaine étape : monitoring & authentification
-
-### 📦 Dockerfile  
-→ containerisation du pipeline + API
-
-### 🪶 Airflow DAG  
-→ automatiser entraînement + évaluation
-
-### 🧪 Tests unitaires (pytest)  
-→ sécuriser le code
-
-### 🧩 Validation Pydantic  
-→ sécuriser les inputs API
-
-### 📊 Monitoring dérive de données  
-→ alerter en cas de drift
+```
+pytest -q
+```
 
 ---
 
-# 🎉 13. Conclusion
+## 🧱 **10. Workflow Git**
 
-Ce projet implémente un pipeline MLOps **complet**, **propre**, **professionnel**, incluant :
+### ✔ Branches utilisées
 
-- architecture modulaire  
-- pipeline sklearn encapsulé  
-- MLflow tracking  
-- modes FAST/FULL  
-- évaluation indépendante  
-- prédiction enrichie  
-- CLI complet Typer  
-- API FastAPI  
+- `main` → stable, production  
+- `angella-dev` → développement, tests, corrections  
 
-Il est prêt pour :
+### ✔ Processus
 
-- la production  
-- la démonstration  
-- l’enseignement  
-- l’industrialisation  
+1. Développement sur `angella-dev`  
+2. Tests unitaires  
+3. Tests manuels  
+4. PR vers `main`  
+5. Merge  
+6. Release v1.0.0  
+
+---
+
+## 🏷️ **11. Release v1.0.0**
+
+La release inclut :
+
+- API stable  
+- Architecture hybride MLflow + SQLite  
+- Sécurité token  
+- Tests unitaires complets  
+- `.gitignore` finalisé  
+- Code propre, modulaire, maintenable  
+
+👉 Disponible ici :  
+[https://github.com/DataScientest-Studio/FEV26-CMLOPS-RAKUTEN/releases/tag/v1.0.0](https://github.com/DataScientest-Studio/FEV26-CMLOPS-RAKUTEN/releases/tag/v1.0.0)
+
+---
+
+## 🎓 **12. Soutenance – Points clés à présenter**
+
+- Architecture MLOps moderne  
+- API robuste et sécurisée  
+- MLflow Tracking + Registry  
+- Tests unitaires complets  
+- Workflow Git professionnel  
+- Release versionnée  
+- Code propre et maintenable  
+
 
