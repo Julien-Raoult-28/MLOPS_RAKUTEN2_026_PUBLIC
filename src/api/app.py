@@ -13,6 +13,10 @@ from fastapi import FastAPI, HTTPException, Header
 from src.services.prediction_service import predict_product
 from src.api.schemas import PredictionRequest
 
+# ---------------------------------------------------------------------------
+# Configuration API
+# ---------------------------------------------------------------------------
+
 API_TOKEN = "RAKUTEN_SECRET_123"
 
 app = FastAPI(
@@ -20,6 +24,10 @@ app = FastAPI(
     description="API pour prédire la catégorie d'un produit Rakuten",
     version="1.0.0",
 )
+
+# ---------------------------------------------------------------------------
+# Middleware de sécurité
+# ---------------------------------------------------------------------------
 
 def verify_token(x_token: str = Header(None)) -> None:
     """Vérifie la présence et la validité du token API."""
@@ -29,10 +37,15 @@ def verify_token(x_token: str = Header(None)) -> None:
             detail="Token invalide ou manquant",
         )
 
+# ---------------------------------------------------------------------------
+# Endpoints
+# ---------------------------------------------------------------------------
+
 @app.get("/")
 def root() -> dict:
     """Endpoint de santé (healthcheck)."""
     return {"message": "API Rakuten opérationnelle"}
+
 
 @app.post("/predict")
 def predict(request: PredictionRequest, x_token: str = Header(None)) -> dict:
