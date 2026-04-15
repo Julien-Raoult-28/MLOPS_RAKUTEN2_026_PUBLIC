@@ -13,10 +13,6 @@ from fastapi import FastAPI, HTTPException, Header
 from src.services.prediction_service import predict_product
 from src.api.schemas import PredictionRequest
 
-# ---------------------------------------------------------------------------
-# Configuration API
-# ---------------------------------------------------------------------------
-
 API_TOKEN = "RAKUTEN_SECRET_123"
 
 app = FastAPI(
@@ -25,69 +21,23 @@ app = FastAPI(
     version="1.0.0",
 )
 
-# ---------------------------------------------------------------------------
-# Middleware de sécurité
-# ---------------------------------------------------------------------------
-
 def verify_token(x_token: str = Header(None)) -> None:
-    """
-    Vérifie la présence et la validité du token API.
-
-    Paramètres
-    ----------
-    x_token : str
-        Token transmis dans l'en-tête HTTP.
-
-    Exceptions
-    ----------
-    HTTPException
-        Si le token est absent ou incorrect.
-    """
+    """Vérifie la présence et la validité du token API."""
     if x_token != API_TOKEN:
         raise HTTPException(
             status_code=401,
             detail="Token invalide ou manquant",
         )
 
-# ---------------------------------------------------------------------------
-# Endpoints
-# ---------------------------------------------------------------------------
-
 @app.get("/")
 def root() -> dict:
-    """
-    Endpoint de santé (healthcheck).
-
-    Retour
-    ------
-    dict
-        Message confirmant que l'API est opérationnelle.
-    """
+    """Endpoint de santé (healthcheck)."""
     return {"message": "API Rakuten opérationnelle"}
-
 
 @app.post("/predict")
 def predict(request: PredictionRequest, x_token: str = Header(None)) -> dict:
     """
     Endpoint principal : prédire la catégorie d'un produit.
-
-    Paramètres
-    ----------
-    request : PredictionRequest
-        Données d'entrée validées par Pydantic.
-    x_token : str
-        Token API transmis dans l'en-tête HTTP.
-
-    Retour
-    ------
-    dict
-        Résultat structuré contenant la prédiction et les métadonnées.
-
-    Exceptions
-    ----------
-    HTTPException
-        - 401 si token invalide
-        - 500 si erreur interne (MLflow, modèle, etc.)
     """
     verify_token(x_token)
 
