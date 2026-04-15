@@ -28,6 +28,18 @@ import mlflow
 mlflow.set_tracking_uri("sqlite:///mlflow.db")
 
 
+# ------------------------------------------------------------
+# Chargement du mapping métier (code → libellé)
+# ------------------------------------------------------------
+MAPPING_DF = pd.read_csv("data/processed/Y_train_encode.csv")
+LABEL_MAPPING = dict(
+    zip(
+        MAPPING_DF["prdtypecode_encoded"].astype(int),
+        MAPPING_DF["libelle_type_code"].astype(str)
+    )
+)
+
+
 def load_model(run_id: str | None):
     """
     Charge un modèle MLflow.
@@ -72,7 +84,7 @@ def predict_product(designation: str, description: str, run_id: str | None):
         Résultat structuré contenant :
         - les données d'entrée
         - le code de prédiction
-        - le label métier
+        - le label métier décodé
         - le temps d'inférence
         - les métadonnées MLflow
     """
@@ -94,7 +106,9 @@ def predict_product(designation: str, description: str, run_id: str | None):
 
         # Le modèle sklearn renvoie un array numpy
         prediction_code = int(pred[0])
-        label = str(prediction_code)  # mapping métier simplifié
+
+        # Décodage métier (code → libellé)
+        label = LABEL_MAPPING.get(prediction_code, str(prediction_code))
 
         return {
             "designation": designation,

@@ -1,7 +1,3 @@
-<<<<<<< Updated upstream
-from fastapi import FastAPI, HTTPException
-from src.services.prediction_service import predict_product
-=======
 """
 Application FastAPI pour la classification de produits Rakuten.
 
@@ -22,16 +18,12 @@ from src.api.schemas import PredictionRequest
 # ---------------------------------------------------------------------------
 
 API_TOKEN = "RAKUTEN_SECRET_123"
->>>>>>> Stashed changes
 
 app = FastAPI(
     title="Rakuten Product Classification API",
     description="API pour prédire la catégorie d'un produit Rakuten",
     version="1.0.0",
 )
-
-<<<<<<< Updated upstream
-=======
 
 # ---------------------------------------------------------------------------
 # Middleware de sécurité
@@ -57,12 +49,10 @@ def verify_token(x_token: str = Header(None)) -> None:
             detail="Token invalide ou manquant",
         )
 
-
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
 
->>>>>>> Stashed changes
 @app.get("/")
 def root() -> dict:
     """
@@ -75,22 +65,8 @@ def root() -> dict:
     """
     return {"message": "API Rakuten opérationnelle"}
 
+
 @app.post("/predict")
-<<<<<<< Updated upstream
-def predict_endpoint(
-    designation: str,
-    description: str,
-    run_id: str
-):
-    """
-    Endpoint minimaliste pour prédire la catégorie d'un produit.
-    """
-    try:
-        result = predict_product(
-            designation=designation,
-            description=description,
-            run_id=run_id
-=======
 def predict(request: PredictionRequest, x_token: str = Header(None)) -> dict:
     """
     Endpoint principal : prédire la catégorie d'un produit.
@@ -116,27 +92,17 @@ def predict(request: PredictionRequest, x_token: str = Header(None)) -> dict:
     verify_token(x_token)
 
     try:
-        result = predict_product(
+        return predict_product(
             designation=request.designation,
             description=request.description,
             run_id=request.run_id,
->>>>>>> Stashed changes
         )
-        return result
 
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 
-<<<<<<< Updated upstream
-    except RuntimeError as re:
-        raise HTTPException(status_code=500, detail=str(re))
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erreur inattendue : {e}")
-=======
     except Exception as exc:
         raise HTTPException(
             status_code=500,
             detail=f"Erreur interne lors de la prédiction : {exc}",
         )
->>>>>>> Stashed changes
