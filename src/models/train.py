@@ -4,27 +4,6 @@ Module d'entraînement du modèle TF-IDF + LinearSVC avec suivi MLflow.
 Ce script implémente un pipeline d'entraînement complet, modulaire et
 configurable via un fichier YAML. Il est compatible avec une exécution
 en ligne de commande (CLI) et respecte les bonnes pratiques MLOps.
-
-Étapes principales :
-1. Chargement de la configuration
-2. Chargement des données
-3. Construction du pipeline
-4. Séparation train/validation
-5. Entraînement du modèle
-6. Évaluation (accuracy, F1, precision, recall)
-7. Logging MLflow (paramètres, métriques, artefacts, modèle)
-
-Artefacts générés :
-- Matrice de confusion (PNG)
-- Rapport de classification (TXT)
-- Model Card (TXT)
-- Résumé du pipeline (TXT)
-- Modèle sérialisé (MLflow + sklearn)
-
-IMPORTANT :
-Ce script utilise MLflow avec un backend SQLite (mlflow.db),
-ce qui permet l'utilisation du Model Registry et du mode hybride
-dans l'API FastAPI.
 """
 
 from pathlib import Path
@@ -48,22 +27,10 @@ from src.data.load_data import load_data
 from src.models.pipeline import build_pipeline
 
 
-def train(mode: str = None) -> None:
+def train(mode: str = None):
     """
     Entraîne le modèle TF-IDF + LinearSVC selon le mode choisi (fast/full)
-    et logge l'ensemble des artefacts dans MLflow.
-
-    Paramètres
-    ----------
-    mode : str, optionnel
-        Mode d'entraînement ("fast" ou "full").
-        Si None, le mode défini dans config.yaml est utilisé.
-
-    Retour
-    ------
-    None
-        Les résultats sont enregistrés dans MLflow et les artefacts
-        sont sauvegardés dans le dossier `models/`.
+    et logge l'ensemble des artefacts dans MLflow + Model Registry.
     """
 
     # --------------------------------------------------------
@@ -77,9 +44,8 @@ def train(mode: str = None) -> None:
     print(f"🚀 Mode d'entraînement : {config['mode'].upper()}")
 
     # --------------------------------------------------------
-    # 2) Configuration MLflow (SQLite + Model Registry)
+    # 2) Configuration MLflow (SQLite + Experiment propre)
     # --------------------------------------------------------
-    # Ce backend permet d'enregistrer le modèle dans le Model Registry
     mlflow.set_tracking_uri("sqlite:///mlflow.db")
     mlflow.set_experiment(config["mlflow"]["experiment_name"])
 
@@ -195,13 +161,15 @@ def train(mode: str = None) -> None:
         mlflow.log_artifact(pipeline_path)
 
         # ----------------------------------------------------
-        # Sauvegarde du modèle
+        # Sauvegarde du modèle + Model Registry
         # ----------------------------------------------------
-        mlflow.sklearn.log_model(pipeline, "model")
+        mlflow.sklearn.log_model(
+            pipeline,
+            artifact_path="model",
+            registered_model_name="rakuten_classifier"
+        )
 
-        print("✅ Modèle sauvegardé et loggé dans MLflow.")
+        print("✅ Modèle loggé dans le run + enregistré dans le Model Registry.")
         print(f"📌 Nouveau run_id (SQLite) : {run.info.run_id}")
 
-
-if __name__ == "__main__":
-    train()
+        return pipeline

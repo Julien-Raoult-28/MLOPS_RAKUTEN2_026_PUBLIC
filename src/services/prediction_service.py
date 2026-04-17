@@ -1,129 +1,100 @@
 """
-Service de prédiction pour l'API Rakuten.
+Service de prédiction pour l’API Rakuten.
 
-Ce module charge un modèle MLflow (via run_id ou via le Model Registry)
-et exécute une prédiction sur un produit décrit par :
+Ce module orchestre :
+- le chargement du modèle MLflow (run_id ou Model Registry),
+- la préparation des données,
+- l’exécution de la prédiction,
+- le décodage métier,
+- la construction d’une réponse structurée.
 
-- designation : titre du produit
-- description : description textuelle
-
-Le service est compatible avec :
-- MLflow FileStore (runs:/)
-- MLflow Model Registry (models:/)
-- MLflow pyfunc (modèles génériques)
-
-Le backend MLflow utilisé est SQLite (mlflow.db), ce qui permet
-l'utilisation du Model Registry et du mode hybride dans l'API.
+Il constitue la couche “métier” de l’API FastAPI.
 """
 
 import time
 from datetime import datetime
+from pathlib import Path
 import pandas as pd
-import mlflow
+
+from src.api.utils import load_model_from_registry, load_model_from_run
 
 
-# ------------------------------------------------------------
-# Configuration MLflow (OBLIGATOIRE pour le mode hybride)
-# ------------------------------------------------------------
-mlflow.set_tracking_uri("sqlite:///mlflow.db")
-
-
-# ------------------------------------------------------------
+# ---------------------------------------------------------------------------
 # Chargement du mapping métier (code → libellé)
-# ------------------------------------------------------------
-MAPPING_DF = pd.read_csv("data/processed/Y_train_encode.csv")
+# ---------------------------------------------------------------------------
+
+BASE_DIR = Path(__file__).resolve().parents[2]
+MAPPING_PATH = BASE_DIR / "data" / "processed" / "Y_train_encode.csv"
+
+MAPPING_DF = pd.read_csv(MAPPING_PATH)[
+    ["prdtypecode_encoded", "libelle_type_code"]
+].drop_duplicates()
+
 LABEL_MAPPING = dict(
     zip(
         MAPPING_DF["prdtypecode_encoded"].astype(int),
-        MAPPING_DF["libelle_type_code"].astype(str)
+        MAPPING_DF["libelle_type_code"].astype(str),
     )
 )
 
 
-def load_model(run_id: str | None):
+# ---------------------------------------------------------------------------
+# Fonction principale de prédiction
+# ---------------------------------------------------------------------------
+
+def predict_product(designation: str, description: str, run_id: str | None) -> dict:
     """
-    Charge un modèle MLflow.
+    Exécute une prédiction via un modèle MLflow (pyfunc).
 
-    Paramètres
-    ----------
-    run_id : str | None
-        - Si fourni : charge le modèle associé au run (runs:/)
-        - Si None : charge le modèle en Production dans le Model Registry
-
-    Retour
-    ------
-    mlflow.pyfunc.PyFuncModel
-        Modèle MLflow prêt à exécuter une prédiction.
-    """
-
-    if run_id:
-        model_uri = f"runs:/{run_id}/model"
-    else:
-        model_uri = "models:/rakuten_classifier/Production"
-
-    return mlflow.pyfunc.load_model(model_uri)
-
-
-def predict_product(designation: str, description: str, run_id: str | None):
-    """
-    Effectue une prédiction via un modèle MLflow (pyfunc).
-
-    Paramètres
-    ----------
-    designation : str
-        Titre du produit.
-    description : str
-        Description textuelle du produit.
-    run_id : str | None
-        Identifiant MLflow pour charger un modèle spécifique.
-        Si None, charge le modèle en Production.
-
-    Retour
-    ------
-    dict
-        Résultat structuré contenant :
-        - les données d'entrée
-        - le code de prédiction
-        - le label métier décodé
-        - le temps d'inférence
-        - les métadonnées MLflow
+    Retourne un dictionnaire complet contenant :
+    - prediction_code
+    - label
+    - confidence (si dispo)
+    - inference_time_ms
+    - model_uuid
+    - model_version
+    - timestamp
     """
 
     try:
-        # Charger le modèle MLflow
-        model = load_model(run_id)
+        # Sélection du mode de chargement
+        if run_id:
+            model = load_model_from_run(run_id)
+            model_version = run_id
+        else:
+            model = load_model_from_registry()
+            model_version = "Production"
 
-        # Préparer les données pour pyfunc
-        df = pd.DataFrame([{
-            "designation": designation,
-            "description": description
-        }])
+        # Préparation des données
+        df = pd.DataFrame(
+            [{"designation": designation, "description": description}]
+        )
 
-        # Exécuter la prédiction
+        # Prédiction
         start = time.time()
-        pred = model.predict(df)
+        raw_pred = model.predict(df)
         end = time.time()
 
-        # Le modèle sklearn renvoie un array numpy
-        prediction_code = int(pred[0])
-
-        # Décodage métier (code → libellé)
+        prediction_code = int(raw_pred[0])
         label = LABEL_MAPPING.get(prediction_code, str(prediction_code))
 
+        # Probabilités si disponibles
+        confidence = None
+        if hasattr(model, "predict_proba"):
+            proba = model.predict_proba(df)
+            confidence = float(proba.max())
+
+        # Construction de la réponse complète
         return {
-            "designation": designation,
-            "description": description,
-            "prediction": {
-                "prediction_code": prediction_code,
-                "label": label,
-                "confidence": None,  # LinearSVC ne fournit pas de probas
-                "inference_time_ms": round((end - start) * 1000, 3),
-                "model_uuid": "unknown",
-                "model_version": "1",
-                "timestamp": datetime.utcnow().isoformat() + "Z",
-            },
+            "prediction_code": prediction_code,
+            "label": label,
             "run_id": run_id,
+            "confidence": confidence,
+            "inference_time_ms": round((end - start) * 1000, 3),
+            "model_uuid": "unknown",
+            "model_version": model_version,
+            "timestamp": datetime.utcnow().isoformat() + "Z",
         }
 
-    except Exception as e:
-        raise RuntimeError(f"Erreur lors de la prédiction : {e}")
+    except Exception as exc:
+        raise RuntimeError(f"Erreur lors de la prédiction : {exc}")
