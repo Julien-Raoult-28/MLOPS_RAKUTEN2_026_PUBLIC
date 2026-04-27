@@ -15,6 +15,7 @@ Version modulaire + configuration YAML + compatible MLflow.
 # ============================================================
 
 from pathlib import Path
+
 import mlflow
 import mlflow.sklearn
 import matplotlib.pyplot as plt
@@ -30,6 +31,7 @@ from sklearn.metrics import (
 )
 
 from src.utils.config_loader import load_config
+from src.utils.mlflow_config import get_tracking_uri
 from src.data.load_data import load_data
 
 
@@ -48,7 +50,8 @@ def evaluate(run_id: str = None):
     # --------------------------------------------------------
     config = load_config()
 
-    mlflow.set_tracking_uri(config["mlflow"]["tracking_uri"])
+    # URI lue via le helper partagé (src/utils/mlflow_config.py).
+    mlflow.set_tracking_uri(get_tracking_uri())
     mlflow.set_experiment(config["mlflow"]["experiment_name"])
 
     BASE_DIR = Path(__file__).resolve().parents[2]
@@ -62,9 +65,6 @@ def evaluate(run_id: str = None):
     # --------------------------------------------------------
     # 3) Charger le modèle
     # --------------------------------------------------------
-        # --------------------------------------------------------
-    # 3) Charger le modèle
-    # --------------------------------------------------------
     if run_id:
         print(f"📦 Chargement du modèle MLflow (run_id={run_id})...")
         model_uri = f"runs:/{run_id}/model"
@@ -72,18 +72,6 @@ def evaluate(run_id: str = None):
     else:
         print("❌ Aucun run_id fourni. Veuillez spécifier un modèle MLflow à évaluer.")
         return
-    
-    
-    
-    
-    '''if run_id:
-        print(f"📦 Chargement du modèle MLflow (run_id={run_id})...")
-        model_uri = f"runs:/{run_id}/model"
-        model = mlflow.sklearn.load_model(model_uri)
-    else:
-        print("📦 Chargement du modèle local...")
-        model_path = BASE_DIR / "models" / "model_tfidf_svc.pkl"
-        model = mlflow.sklearn.load_model(model_path)'''
 
     # --------------------------------------------------------
     # 4) Prédictions

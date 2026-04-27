@@ -14,6 +14,8 @@ Deux modes sont supportés :
 
 import mlflow
 
+from src.utils.mlflow_config import get_tracking_uri
+
 
 def load_model_from_registry() -> object:
     """
@@ -24,7 +26,7 @@ def load_model_from_registry() -> object:
     object
         Modèle MLflow chargé (pyfunc).
     """
-    mlflow.set_tracking_uri("sqlite:///mlflow.db")
+    mlflow.set_tracking_uri(get_tracking_uri())
     model_uri = "models:/rakuten_classifier/Production"
 
     try:
@@ -49,7 +51,7 @@ def load_model_from_run(run_id: str) -> object:
     object
         Modèle MLflow chargé (pyfunc).
     """
-    mlflow.set_tracking_uri("sqlite:///mlflow.db")
+    mlflow.set_tracking_uri(get_tracking_uri())
     model_uri = f"runs:/{run_id}/model"
 
     try:

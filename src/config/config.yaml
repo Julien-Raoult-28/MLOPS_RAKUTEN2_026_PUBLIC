@@ -16,5 +16,6 @@ model:
 
 
 mlflow:
-  tracking_uri: "file:///C:/Users/angel/Desktop/A/Datascientest/Projet MLOps/FEV26-CMLOPS-RAKUTEN/mlruns"
+  # tracking_uri n'est plus défini ici : il est lu depuis la variable d'env
+  # MLFLOW_TRACKING_URI (.env en local, environment: en Docker).
   experiment_name: "rakuten_classification"

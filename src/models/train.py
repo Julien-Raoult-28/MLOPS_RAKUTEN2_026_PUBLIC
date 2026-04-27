@@ -6,14 +6,12 @@ configurable via un fichier YAML. Il est compatible avec une exécution
 en ligne de commande (CLI) et respecte les bonnes pratiques MLOps.
 """
 
-import os
 from pathlib import Path
 
 import mlflow
 import mlflow.sklearn
 import matplotlib.pyplot as plt
 import seaborn as sns
-from dotenv import load_dotenv
 
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import (
@@ -26,12 +24,9 @@ from sklearn.metrics import (
 )
 
 from src.utils.config_loader import load_config
+from src.utils.mlflow_config import get_tracking_uri
 from src.data.load_data import load_data
 from src.models.pipeline import build_pipeline
-
-# Charge le fichier .env (s'il existe) dans os.environ.
-# Permet de paramétrer MLFLOW_TRACKING_URI sans hardcoder d'URL dans le code.
-load_dotenv()
 
 
 def train(mode: str = None):
@@ -53,14 +48,9 @@ def train(mode: str = None):
     # --------------------------------------------------------
     # 2) Configuration MLflow
     # --------------------------------------------------------
-    # L'URL du tracking server n'est PAS hardcodée : elle est lue depuis la
-    # variable d'environnement MLFLOW_TRACKING_URI (chargée depuis .env).
-    # Cela permet à chaque environnement (local, Docker, prod) d'utiliser
-    # une URL différente sans modifier le code.
-    #   - en local         → http://localhost:8081 (port hôte du conteneur)
-    #   - dans un conteneur → http://mlflow:8080  (résolu via le réseau Docker)
-    # Le fallback ci-dessous protège le cas où .env n'existerait pas.
-    tracking_uri = os.getenv("MLFLOW_TRACKING_URI", "http://localhost:8081")
+    # URI lue via le helper partagé (src/utils/mlflow_config.py) qui charge
+    # .env et lit MLFLOW_TRACKING_URI. Aucune URL hardcodée ici.
+    tracking_uri = get_tracking_uri()
     mlflow.set_tracking_uri(tracking_uri)
     print(f"🔗 MLflow tracking URI : {tracking_uri}")
 

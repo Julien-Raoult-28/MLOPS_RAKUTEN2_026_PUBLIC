@@ -1,8 +1,10 @@
 import typer
 import mlflow
+import pandas as pd
+
 from src.models.train import train
 from src.models.evaluate import evaluate
-import pandas as pd
+from src.utils.mlflow_config import get_tracking_uri
 
 app = typer.Typer(help="CLI complet pour le pipeline MLOps Rakuten")
 
@@ -12,10 +14,9 @@ def train_cmd(mode: str = typer.Option("fast", help="Mode d'entraînement : fast
     """
     Lance l'entraînement du modèle en mode FAST ou FULL.
     """
-    mlflow.set_tracking_uri("sqlite:///mlflow.db")
-    mlflow.set_experiment("rakuten_classification")
-
-    # ❗ NE PAS ouvrir de run ici
+    # ❗ Pas de set_tracking_uri ici : c'est train() qui s'en charge
+    #    en lisant MLFLOW_TRACKING_URI depuis l'environnement (.env / Docker).
+    # ❗ Pas de start_run ici non plus : c'est train() qui ouvre le run.
     model = train(mode=mode)
 
     typer.echo("🎉 Entraînement terminé et modèle loggé dans MLflow.")
@@ -32,7 +33,8 @@ def predict_cmd(
     description: str = typer.Option(...),
     run_id: str = typer.Option(...)
 ):
-    mlflow.set_tracking_uri("sqlite:///mlflow.db")
+    # URI lue via le helper partagé (src/utils/mlflow_config.py).
+    mlflow.set_tracking_uri(get_tracking_uri())
     model = mlflow.sklearn.load_model(f"runs:/{run_id}/model")
 
     X = pd.DataFrame([{
