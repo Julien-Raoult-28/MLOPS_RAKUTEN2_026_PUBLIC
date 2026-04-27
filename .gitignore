@@ -24,6 +24,15 @@ __pycache__/
 venv/
 
 # ============================
+#   Environment variables
+# ============================
+# .env contient des valeurs locales (ports, URLs, éventuels secrets).
+# On versionne uniquement .env.example comme template.
+.env
+
+
+
+# ============================
 #   Notes internes (optionnel)
 # ============================
 # Quand tout le monde aura synchronisé le repo on pourra ajouter un gitignore sur le dossier main/data/
