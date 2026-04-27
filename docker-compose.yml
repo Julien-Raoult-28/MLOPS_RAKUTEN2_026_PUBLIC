@@ -1,0 +1,123 @@
+# =============================================================================
+#  docker-compose.yml — Orchestration de tous les services du projet MLOps
+# =============================================================================
+#  Comment lire ce fichier :
+#    - Chaque entrée sous "services:" = un conteneur (= un service applicatif).
+#    - Tous les services tournent sur le même réseau "mlops-net" et peuvent
+#      donc se parler via leur NOM (ex: "http://mlflow:8080").
+#    - Les ports listés sous "ports:" exposent les conteneurs vers TON PC.
+#    - Les volumes nommés (en bas) survivent à la suppression des conteneurs.
+#
+#  Commandes utiles :
+#    docker compose up -d                  # tout lancer
+#    docker compose up -d mlflow           # juste MLflow
+#    docker compose logs -f api            # suivre les logs d'un service
+#    docker compose down                   # tout arrêter (volumes conservés)
+#    docker compose build mlflow           # reconstruire après modif Dockerfile
+# =============================================================================
+
+services:
+
+  # ===========================================================================
+  # MLflow Tracking Server
+  # ---------------------------------------------------------------------------
+  #  Responsable : Dimitri
+  #  Rôle : suivi des expériences ML (runs, paramètres, métriques, artefacts)
+  # ===========================================================================
+  mlflow:
+    build:
+      # context = dossier "racine" que Docker peut lire pendant le build.
+      # On met "." pour pouvoir accéder à tout le repo si besoin (ex: COPY).
+      context: .
+      dockerfile: docker/mlflow/Dockerfile
+    container_name: mlflow-server
+
+    ports:
+      # Format : "<port_hôte>:<port_conteneur>"
+      # Le port côté hôte est paramétrable via .env (MLFLOW_HOST_PORT).
+      # Le ":-8081" donne 8081 par défaut si la variable n'est pas définie.
+      - "${MLFLOW_HOST_PORT:-8081}:8080"
+
+    volumes:
+      # Volume nommé "mlflow-data" branché sur /mlflow/data dans le conteneur.
+      # C'est là que le Dockerfile MLflow stocke la base SQLite + les artefacts.
+      # Docker crée le volume tout seul s'il n'existe pas encore.
+      - mlflow-data:/mlflow/data
+
+    restart: unless-stopped   # redémarre auto si crash, sauf si arrêt manuel
+
+    networks:
+      - mlops-net
+
+  # ===========================================================================
+  # API FastAPI  ⬅  À COMPLÉTER PAR LA PERSONNE EN CHARGE DE L'API
+  # ---------------------------------------------------------------------------
+  #  Étapes pour activer ce service :
+  #    1) Décommenter le bloc ci-dessous.
+  #    2) Créer docker/api/Dockerfile.
+  #    3) Vérifier que l'app FastAPI lit MLFLOW_TRACKING_URI via os.getenv().
+  #    4) docker compose up -d api
+  # ===========================================================================
+  # api:
+  #   build:
+  #     context: .
+  #     dockerfile: docker/api/Dockerfile
+  #   container_name: api-server
+  #   ports:
+  #     - "${API_HOST_PORT:-8000}:8000"
+  #   environment:
+  #     # ⚠️ Depuis l'intérieur du réseau Docker, on contacte MLflow par son
+  #     #     NOM DE SERVICE et son PORT INTERNE (8080), PAS le port hôte.
+  #     MLFLOW_TRACKING_URI: http://mlflow:8080
+  #   depends_on:
+  #     - mlflow                # démarre MLflow avant l'API
+  #   networks:
+  #     - mlops-net
+  #   restart: unless-stopped
+
+  # ===========================================================================
+  # Airflow  ⬅  À COMPLÉTER PAR LA PERSONNE EN CHARGE DE L'ORCHESTRATION
+  # ---------------------------------------------------------------------------
+  #  Note : un Airflow "complet" se compose souvent de PLUSIEURS conteneurs
+  #         (webserver, scheduler, worker, postgres). Voir l'image officielle
+  #         apache/airflow et l'exemple docker-compose Airflow.
+  # ===========================================================================
+  # airflow:
+  #   build:
+  #     context: .
+  #     dockerfile: docker/airflow/Dockerfile
+  #   container_name: airflow
+  #   ports:
+  #     - "${AIRFLOW_HOST_PORT:-8082}:8080"
+  #   environment:
+  #     MLFLOW_TRACKING_URI: http://mlflow:8080
+  #   volumes:
+  #     - airflow-data:/opt/airflow
+  #   depends_on:
+  #     - mlflow
+  #   networks:
+  #     - mlops-net
+  #   restart: unless-stopped
+
+
+# =============================================================================
+#  Volumes nommés
+# -----------------------------------------------------------------------------
+#  Déclarer un volume ici permet de le partager entre plusieurs services
+#  si nécessaire et d'éviter qu'il soit supprimé avec "docker compose down".
+#  Pour le supprimer pour de bon : "docker compose down -v" (⚠️ destructif).
+# =============================================================================
+volumes:
+  mlflow-data:
+  # airflow-data:
+
+
+# =============================================================================
+#  Réseau interne du projet
+# -----------------------------------------------------------------------------
+#  Tous les services attachés à "mlops-net" peuvent se résoudre par leur nom.
+#  Exemple : depuis le conteneur "api", "ping mlflow" fonctionne.
+# =============================================================================
+networks:
+  mlops-net:
+    driver: bridge
