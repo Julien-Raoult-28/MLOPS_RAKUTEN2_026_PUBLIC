@@ -25,7 +25,7 @@ def load_model_from_registry() -> object:
         Modèle MLflow chargé (pyfunc).
     """
     mlflow.set_tracking_uri("sqlite:///mlflow.db")
-    model_uri = "models:/rakuten_classifier/Production"
+    model_uri = "models:/rakuten_classifier@production"
 
     try:
         return mlflow.pyfunc.load_model(model_uri)
