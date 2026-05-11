@@ -1,20 +1,46 @@
-from airflow import DAG
-from airflow.operators.python import PythonOperator
+"""
+DAG : rakuten_ml_pipeline
+-------------------------
+Pipeline d'entraînement Rakuten orchestré par Airflow.
+
+5 étapes (tâches) enchaînées :
+    load → preprocess → train → evaluate_model → register_model
+
+Ce que fait une exécution du DAG :
+  1. lit les CSV bruts et écrit un CSV intermédiaire dans /tmp,
+  2. crée un run MLflow (paramètres + métriques + artefact modèle),
+  3. enregistre une nouvelle version dans le Model Registry,
+  4. pose l'alias 'production' sur cette version → l'API la sert ensuite.
+
+Le run_id MLflow circule entre les tâches via Airflow XCom (return value de
+`train` récupérée par `evaluate_model` et `register_model`).
+
+Le pipeline scikit-learn lui-même n'est PAS défini ici : il vient de
+`src/models/pipeline.py` (fonction `build_pipeline`). Le DAG appelle cette
+factory, ce qui évite de dupliquer la définition du modèle entre l'entraînement
+en CLI et l'entraînement en DAG.
+"""
+
+import os
 from datetime import datetime
 
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score, classification_report
-from sklearn.model_selection import train_test_split
-import json
+from airflow import DAG
+from airflow.operators.python import PythonOperator
 
 
 # -----------------------
-# PATHS
+# CONFIG
 # -----------------------
 RAW_X = "/opt/airflow/data/raw/X_train_update.csv"
 RAW_Y = "/opt/airflow/data/processed/Y_train_encode.csv"
 TMP = "/tmp/rakuten_clean.csv"
 MODEL_PATH = "/opt/airflow/models/1.3_rakuten_model_final.pkl"
+TEST_DATA_PATH = "/opt/airflow/models/test_data.pkl"
+METRICS_PATH = "/opt/airflow/models/metrics.json"
+
+MLFLOW_TRACKING_URI = os.getenv("MLFLOW_TRACKING_URI", "http://mlflow:8080")
+EXPERIMENT_NAME = "rakuten_ml_pipeline"
+REGISTERED_MODEL_NAME = "rakuten_classifier"
 
 
 # -----------------------
@@ -27,14 +53,10 @@ def load_data():
     y = pd.read_csv(RAW_Y)
 
     df = x.merge(y, on="Unnamed: 0")
-
     df = df[["designation", "description", "prdtypecode_encoded"]]
-
-    # SAFE sampling (important)
     df = df.sample(n=min(50000, len(df)), random_state=42)
 
     df.to_csv(TMP, index=False)
-
     print("LOAD OK", df.shape)
 
 
@@ -42,14 +64,19 @@ def load_data():
 # 2. PREPROCESS
 # -----------------------
 def preprocess():
+    """
+    Remplace les NaN par "" et passe le texte en minuscules sur les colonnes
+    designation et description, puis ré-écrit le CSV intermédiaire.
+
+    À noter : le pipeline scikit-learn (TfidfVectorizer) refait déjà ces
+    opérations en interne. On les garde quand même ici pour que le CSV
+    intermédiaire dans /tmp soit propre et facile à inspecter.
+    """
     import pandas as pd
 
     df = pd.read_csv(TMP)
-
-    df["designation"] = df["designation"].fillna("").str.lower()
-    df["description"] = df["description"].fillna("").str.lower()
-
-    df["text"] = df["designation"] + " " + df["description"]
+    df["designation"] = df["designation"].fillna("").astype(str).str.lower()
+    df["description"] = df["description"].fillna("").astype(str).str.lower()
 
     df.to_csv(TMP, index=False)
     print("PREPROCESS OK")
@@ -58,66 +85,103 @@ def preprocess():
 # -----------------------
 # 3. TRAIN
 # -----------------------
-def train():
-    import pandas as pd
+def train(**context):
     import pickle
-    import os
 
-    from sklearn.svm import LinearSVC
-    from sklearn.pipeline import FeatureUnion
-    from sklearn.feature_extraction.text import TfidfVectorizer
+    import mlflow
+    import mlflow.sklearn
+    import pandas as pd
     from sklearn.model_selection import train_test_split
 
-    df = pd.read_csv(TMP)
+    # Import du pipeline partagé (factory) et de la config YAML
+    from src.utils.config_loader import load_config
+    from src.models.pipeline import build_pipeline
 
-    X = df["text"]
+    config = load_config()
+    mode = config["mode"]
+
+    df = pd.read_csv(TMP)
+    # Le pipeline attend un DataFrame avec ces 2 colonnes séparées
+    # (et pas un texte déjà concaténé).
+    X = df[["designation", "description"]]
     y = df["prdtypecode_encoded"]
 
-    # ✅ SPLIT TRAIN / TEST
     X_train, X_test, y_train, y_test = train_test_split(
-        X, y,
-        test_size=0.2,
-        random_state=42,
-        stratify=y
+        X, y, test_size=0.2, random_state=42, stratify=y
     )
 
-    features = FeatureUnion([
-        ("word", TfidfVectorizer(ngram_range=(1,2), max_features=20000)),
-        ("char", TfidfVectorizer(analyzer="char_wb", ngram_range=(3,5), max_features=10000))
-    ])
+    pipeline = build_pipeline(config)
+    pipeline.fit(X_train, y_train)
 
-    # ✅ TRAIN uniquement sur TRAIN
-    X_train_vec = features.fit_transform(X_train)
-
-    model = LinearSVC(C=1.5, class_weight="balanced")
-    model.fit(X_train_vec, y_train)
-
+    # Sauvegarde locale du pipeline et du jeu de test : permet à la tâche
+    # evaluate_model de relire le modèle et de calculer les métriques.
     os.makedirs("/opt/airflow/models", exist_ok=True)
-
-    # ✅ on sauvegarde aussi le test pour evaluate
-    with open("/opt/airflow/models/test_data.pkl", "wb") as f:
+    with open(TEST_DATA_PATH, "wb") as f:
         pickle.dump((X_test, y_test), f)
-
     with open(MODEL_PATH, "wb") as f:
-        pickle.dump((features, model), f)
+        pickle.dump(pipeline, f)
 
-    print("TRAIN OK")
+    # --- Envoi vers MLflow (format sklearn natif) ---
+    mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
+    mlflow.set_experiment(EXPERIMENT_NAME)
 
-def evaluate_model():
-    import pickle
+    params = {
+        "mode": mode,
+        "C": config["model"]["C"],
+        "max_iter": config["model"][f"max_iter_{mode}"],
+        "max_features_word": config["model"][f"max_features_word_{mode}"],
+        "max_features_desc": config["model"][f"max_features_desc_{mode}"],
+        "test_size": 0.2,
+        "random_state": 42,
+        "n_samples_total": len(df),
+        "n_samples_train": len(X_train),
+        "n_samples_test": len(X_test),
+    }
+
+    with mlflow.start_run() as run:
+        mlflow.set_tag("model_type", "LinearSVC")
+        mlflow.set_tag("source", "airflow_dag")
+        mlflow.log_params(params)
+        mlflow.sklearn.log_model(
+            sk_model=pipeline,
+            artifact_path="model",
+            # On embarque le dossier src/ entier avec le modèle. Le pickle
+            # du pipeline contient des références aux fonctions de
+            # src/features/text_features.py ; sans le dossier, l'API qui
+            # recharge le modèle tombe sur "ModuleNotFoundError: src.features".
+            code_paths=["/opt/airflow/src"],
+            input_example=X_train.head(2),
+            # Crée la version directement dans le Model Registry (au lieu
+            # de faire un client.create_model_version() dans une autre tâche).
+            registered_model_name=REGISTERED_MODEL_NAME,
+        )
+        run_id = run.info.run_id
+
+    print(f"TRAIN OK — MLflow run_id={run_id}")
+    # Cette valeur est automatiquement stockée dans XCom et récupérable
+    # depuis les tâches suivantes via ti.xcom_pull(task_ids="train").
+    return run_id
+
+
+# -----------------------
+# 4. EVALUATE
+# -----------------------
+def evaluate_model(**context):
     import json
+    import pickle
+
+    import mlflow
     from sklearn.metrics import accuracy_score, classification_report
 
-    # load model
-    with open(MODEL_PATH, "rb") as f:
-        features, model = pickle.load(f)
+    ti = context["ti"]
+    run_id = ti.xcom_pull(task_ids="train")
 
-    # load test data
-    with open("/opt/airflow/models/test_data.pkl", "rb") as f:
+    with open(MODEL_PATH, "rb") as f:
+        pipeline = pickle.load(f)
+    with open(TEST_DATA_PATH, "rb") as f:
         X_test, y_test = pickle.load(f)
 
-    X_test_vec = features.transform(X_test)
-    y_pred = model.predict(X_test_vec)
+    y_pred = pipeline.predict(X_test)
 
     acc = accuracy_score(y_test, y_pred)
     report = classification_report(y_test, y_pred, output_dict=True)
@@ -126,13 +190,65 @@ def evaluate_model():
         "accuracy": float(acc),
         "n_samples": len(y_test),
         "model": "LinearSVC",
-        "report": report
+        "report": report,
     }
-
-    with open("/opt/airflow/models/metrics.json", "w") as f:
+    with open(METRICS_PATH, "w") as f:
         json.dump(metrics, f)
 
-    print("EVALUATION OK:", acc)
+    mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
+    with mlflow.start_run(run_id=run_id):
+        mlflow.log_metrics({
+            "accuracy": float(acc),
+            "n_test_samples": len(y_test),
+            "macro_f1": float(report["macro avg"]["f1-score"]),
+            "weighted_f1": float(report["weighted avg"]["f1-score"]),
+        })
+        mlflow.log_artifact(METRICS_PATH, artifact_path="metrics")
+
+    print(f"EVALUATION OK — accuracy={acc:.4f}")
+
+
+# -----------------------
+# 5. REGISTER MODEL
+# -----------------------
+def register_model(**context):
+    """
+    Pose l'alias 'production' sur la version qui vient d'être enregistrée
+    par la tâche train (`registered_model_name=` dans log_model).
+
+    Conséquence : l'API qui charge le modèle via
+        models:/rakuten_classifier@production
+    pointera automatiquement sur la nouvelle version au prochain reload.
+    """
+    import mlflow
+    from mlflow.tracking import MlflowClient
+
+    ti = context["ti"]
+    run_id = ti.xcom_pull(task_ids="train")
+
+    mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
+    client = MlflowClient()
+
+    # On retrouve la version créée par log_model en filtrant sur le run_id.
+    versions = client.search_model_versions(f"name='{REGISTERED_MODEL_NAME}'")
+    matching = [v for v in versions if v.run_id == run_id]
+    if not matching:
+        raise RuntimeError(
+            f"Aucune version trouvée pour run_id={run_id} dans "
+            f"'{REGISTERED_MODEL_NAME}'. La tâche train a-t-elle bien enregistré ?"
+        )
+    mv = matching[0]
+    print(f"FOUND VERSION: {mv.version} (run_id={mv.run_id})")
+
+    # Bascule l'alias 'production' sur cette version. Si l'alias existait
+    # déjà sur une autre version, MLflow le déplace (pas de doublon possible).
+    client.set_registered_model_alias(
+        name=REGISTERED_MODEL_NAME,
+        alias="production",
+        version=mv.version,
+    )
+    print(f"REGISTER OK — {REGISTERED_MODEL_NAME} v{mv.version} → @production")
+
 
 # -----------------------
 # DAG
@@ -141,12 +257,12 @@ with DAG(
     dag_id="rakuten_ml_pipeline",
     start_date=datetime(2024, 1, 1),
     schedule_interval=None,
-    catchup=False
+    catchup=False,
 ) as dag:
-
     t1 = PythonOperator(task_id="load", python_callable=load_data)
     t2 = PythonOperator(task_id="preprocess", python_callable=preprocess)
     t3 = PythonOperator(task_id="train", python_callable=train)
-    t4 = PythonOperator(task_id="evaluate_model",python_callable=evaluate_model)
+    t4 = PythonOperator(task_id="evaluate_model", python_callable=evaluate_model)
+    t5 = PythonOperator(task_id="register_model", python_callable=register_model)
 
-    t1 >> t2 >> t3 >> t4
+    t1 >> t2 >> t3 >> t4 >> t5
