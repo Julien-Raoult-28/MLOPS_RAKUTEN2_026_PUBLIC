@@ -1,0 +1,60 @@
+# =============================================================================
+#  .dockerignore — Fichiers exclus du build context Docker
+# -----------------------------------------------------------------------------
+#  Plus le context est petit, plus le build est rapide et l'image légère.
+#  Tout ce qui est listé ici N'EST PAS envoyé au démon Docker.
+# =============================================================================
+
+# Environnements virtuels (énormes, OS-spécifiques)
+.venv/
+venv/
+env/
+
+# Caches Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Git
+.git/
+.gitignore
+
+# IDE / éditeurs
+.vscode/
+.idea/
+*.swp
+
+# Artefacts MLflow locaux (montés via volume si besoin)
+mlruns/
+mlartifacts/
+
+# Logs
+logs/
+*.log
+
+# Notebooks et exports temporaires
+*.ipynb_checkpoints/
+notebook/
+
+# Fichiers d'env (secrets potentiels)
+.env
+.env.local
+
+# Tests
+tests/
+.coverage
+htmlcov/
+
+# Docs / planning
+.planning/
+.claude/
+docs/
+
+# Docker meta
+docker-compose*.yml
+.dockerignore
+Dockerfile*
