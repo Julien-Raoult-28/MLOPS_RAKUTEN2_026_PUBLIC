@@ -6,6 +6,12 @@ mlruns/
 *.joblib
 mlflow.db
 
+# Artefacts du dossier models/ : regénérés à chaque entraînement
+# (DAG Airflow ou script CLI src/models/train.py). On garde le dossier
+# tracké via .gitkeep pour qu'il existe au clone.
+models/*
+!models/.gitkeep
+
 # ============================
 #   Data
 # ============================
