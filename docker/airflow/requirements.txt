@@ -1,0 +1,25 @@
+# =============================================================================
+#  requirements.txt — Dépendances pour l'image Docker Airflow
+# -----------------------------------------------------------------------------
+#  Ce fichier liste UNIQUEMENT ce dont les DAGs Airflow ont besoin EN PLUS
+#  d'Airflow lui-même (déjà fourni par l'image officielle apache/airflow).
+#
+#  Règles :
+#    - Pas de paquets inutiles (FastAPI, Uvicorn, MLflow server, etc.).
+#    - Pas de paquets Windows-only (pywin32, pywinpty…).
+#    - Versions épinglées pour reproductibilité.
+#
+#  Quand un DAG aura besoin de logger dans MLflow, ajouter ici :
+#    mlflow==3.11.1
+# =============================================================================
+
+numpy==1.26.4
+pandas==2.3.3
+scikit-learn==1.8.0
+mlflow==3.11.1
+# mlflow 3.x charge ses sous-modules genai/gateway au top-level → tire fastapi
+# → tire pydantic.networks.EmailStr → exige email-validator. Pin explicite.
+email-validator==2.2.0
+# Utilisé par src/utils/mlflow_config.py (load_dotenv()) qui est importé
+# indirectement quand un DAG appelle `load_config()` depuis src/utils.
+python-dotenv==1.0.1

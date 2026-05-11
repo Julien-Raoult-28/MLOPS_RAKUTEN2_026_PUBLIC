@@ -50,54 +50,80 @@ services:
       - mlops-net
 
   # ===========================================================================
-  # API FastAPI  ⬅  À COMPLÉTER PAR LA PERSONNE EN CHARGE DE L'API
+  # API FastAPI — service d'inférence
   # ---------------------------------------------------------------------------
-  #  Étapes pour activer ce service :
-  #    1) Décommenter le bloc ci-dessous.
-  #    2) Créer docker/api/Dockerfile.
-  #    3) Vérifier que l'app FastAPI lit MLFLOW_TRACKING_URI via os.getenv().
-  #    4) docker compose up -d api
+  #  Responsable : Dimitri
+  #  Rôle : expose POST /predict. Charge un modèle MLflow soit par run_id
+  #         (mode RUN), soit depuis le Model Registry stage Production
+  #         (mode REGISTRY). Le tracking URI vient de la variable
+  #         MLFLOW_TRACKING_URI injectée ci-dessous.
+  #
+  #  Test :
+  #    curl -X POST http://localhost:8000/predict \
+  #      -H "x-token: RAKUTEN_SECRET_123" \
+  #      -H "Content-Type: application/json" \
+  #      -d '{"designation":"...","description":"..."}'
   # ===========================================================================
-  # api:
-  #   build:
-  #     context: .
-  #     dockerfile: docker/api/Dockerfile
-  #   container_name: api-server
-  #   ports:
-  #     - "${API_HOST_PORT:-8000}:8000"
-  #   environment:
-  #     # ⚠️ Depuis l'intérieur du réseau Docker, on contacte MLflow par son
-  #     #     NOM DE SERVICE et son PORT INTERNE (8080), PAS le port hôte.
-  #     MLFLOW_TRACKING_URI: http://mlflow:8080
-  #   depends_on:
-  #     - mlflow                # démarre MLflow avant l'API
-  #   networks:
-  #     - mlops-net
-  #   restart: unless-stopped
+  api:
+    build:
+      context: .
+      dockerfile: docker/api/Dockerfile
+    container_name: api-server
+    ports:
+      - "${API_HOST_PORT:-8000}:8000"
+    environment:
+      # ⚠️ Depuis l'intérieur du réseau Docker, on contacte MLflow par son
+      #     NOM DE SERVICE et son PORT INTERNE (8080), PAS le port hôte.
+      MLFLOW_TRACKING_URI: http://mlflow:8080
+    depends_on:
+      - mlflow                # démarre MLflow avant l'API
+    networks:
+      - mlops-net
+    restart: unless-stopped
 
   # ===========================================================================
-  # Airflow  ⬅  À COMPLÉTER PAR LA PERSONNE EN CHARGE DE L'ORCHESTRATION
+  # Airflow (mode standalone — pour le dev local)
   # ---------------------------------------------------------------------------
-  #  Note : un Airflow "complet" se compose souvent de PLUSIEURS conteneurs
-  #         (webserver, scheduler, worker, postgres). Voir l'image officielle
-  #         apache/airflow et l'exemple docker-compose Airflow.
+  #  Responsable : Dimitri
+  #  Rôle : orchestration du DAG `rakuten_ml_pipeline` (load → preprocess →
+  #         train → evaluate_model). Loggue les runs dans MLflow via le nom
+  #         de service "mlflow" (réseau partagé `mlops-net`).
+  #
+  #  Note : `airflow standalone` regroupe scheduler + webserver + DB SQLite
+  #         + user admin dans un seul conteneur. Suffisant pour le dev local,
+  #         à remplacer par un setup multi-conteneurs (postgres + scheduler +
+  #         webserver + worker) pour la production.
   # ===========================================================================
-  # airflow:
-  #   build:
-  #     context: .
-  #     dockerfile: docker/airflow/Dockerfile
-  #   container_name: airflow
-  #   ports:
-  #     - "${AIRFLOW_HOST_PORT:-8082}:8080"
-  #   environment:
-  #     MLFLOW_TRACKING_URI: http://mlflow:8080
-  #   volumes:
-  #     - airflow-data:/opt/airflow
-  #   depends_on:
-  #     - mlflow
-  #   networks:
-  #     - mlops-net
-  #   restart: unless-stopped
+  airflow:
+    build:
+      context: .
+      dockerfile: docker/airflow/Dockerfile
+    container_name: airflow
+    command: airflow standalone
+    ports:
+      - "${AIRFLOW_HOST_PORT:-8082}:8080"
+    environment:
+      # URL interne MLflow (réseau Docker, port INTERNE 8080, pas hôte)
+      MLFLOW_TRACKING_URI: http://mlflow:8080
+      # Rend le dossier /opt/airflow/src importable depuis les DAGs.
+      # Sans ça, `from src.models.pipeline import build_pipeline` échoue.
+      PYTHONPATH: /opt/airflow
+      # Force le mono-thread BLAS/OpenMP : évite les deadlocks de fork dans
+      # les tâches PythonOperator qui utilisent scikit-learn (LinearSVC,
+      # TF-IDF), un problème connu avec SequentialExecutor.
+      OMP_NUM_THREADS: "1"
+      OPENBLAS_NUM_THREADS: "1"
+      MKL_NUM_THREADS: "1"
+    volumes:
+      # Bind mounts → modifs sur l'hôte visibles dans le conteneur sans rebuild
+      - ./dags:/opt/airflow/dags
+      - ./data:/opt/airflow/data
+      - ./models:/opt/airflow/models
+    depends_on:
+      - mlflow
+    networks:
+      - mlops-net
+    restart: unless-stopped
 
 
 # =============================================================================
@@ -109,7 +135,10 @@ services:
 # =============================================================================
 volumes:
   mlflow-data:
-  # airflow-data:
+  # Note : Airflow utilise des bind mounts (./dags, ./data, ./models) plutôt
+  # qu'un volume nommé, pour permettre l'édition à chaud des DAGs.
+  # La DB SQLite Airflow vit dans le conteneur → repartie de zéro à chaque
+  # `docker compose down`. Acceptable en dev local.
 
 
 # =============================================================================
