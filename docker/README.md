@@ -8,10 +8,17 @@ de l'ensemble se fait depuis `docker-compose.yml` à la racine du projet.
 ```
 docker/
 ├── mlflow/    → Dockerfile du tracking server MLflow      (Dimitri)
-├── api/       → Dockerfile de l'API FastAPI               (à compléter)
-├── airflow/   → Dockerfile d'Airflow                      (à compléter)
+├── api/       → Dockerfile de l'API FastAPI + guide        (Dimitri)
+├── airflow/   → Dockerfile d'Airflow + guide de test      (Dimitri)
 └── README.md  → ce fichier
 ```
+
+### Guides spécifiques par service
+
+- **Airflow** : voir [`docker/airflow/README.md`](airflow/README.md)
+  pour lancer Airflow + MLflow et exécuter le DAG `rakuten_ml_pipeline`.
+- **API FastAPI** : voir [`docker/api/README.md`](api/README.md) pour
+  lancer le service d'inférence et tester `POST /predict`.
 
 ## Ajouter un nouveau service — checklist
 
