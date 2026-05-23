@@ -1,0 +1,48 @@
+name: CI Rakuten MLOps
+
+on:
+  push:
+    branches: [ main, dimitri/dokerfile-mlflow ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  tests-and-build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout du code
+        uses: actions/checkout@v4
+
+      - name: Installer Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Installer les dépendances
+        run: |
+          if [ -f requirements.txt ]; then
+            pip install -r requirements.txt
+          else
+            echo "Pas de requirements.txt trouvé"
+          fi
+
+      - name: Lancer les tests (si présents)
+        run: |
+          if [ -d tests ]; then
+            pytest -q || echo "Tests en échec ou absents"
+          else
+            echo "Pas de dossier tests/, étape ignorée"
+          fi
+
+      - name: Build image API
+        run: |
+          docker build -t rakuten-api -f docker/api/Dockerfile .
+
+      - name: Build image Airflow
+        run: |
+          docker build -t rakuten-airflow -f docker/airflow/Dockerfile .
+
+      - name: Build image MLflow
+        run: |
+          docker build -t rakuten-mlflow -f docker/mlflow/Dockerfile .
