@@ -4,7 +4,6 @@ from core.utils import affiche_bandeau
 def run():
     affiche_bandeau("Présentation du projet")
 
-    st.write("Contenu de la page présentation...")
     st.markdown("""
 <style>
 /* Centrage horizontal des onglets */

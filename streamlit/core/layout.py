@@ -16,7 +16,7 @@ def apply_layout():
         z-index: 1000;
     ">
         <h3 style="color: #bf0000; margin: 0;">
-            Classification des données produits multimodales de Rakuten France
+            Rakuten - Industrialisation complète d’un pipeline de Machine Learning en environnement MLOps
         </h3>
     </div>
 

@@ -17,3 +17,6 @@ FEV26-CMLOPS-RAKUTEN/
 |    |    ├──images/
 |    |    │    ├── rakuten.png
 |    |    │    ├── favicon_Rakuten.png
+
+Pour lancer streamlit
+streamlit run streamlit/app.py
