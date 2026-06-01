@@ -4,7 +4,7 @@ PAGES = [
     "Présentation du projet",
     "Objectif et Contexte",
     "Orchestration et Déploiement",
-    "PAGE_4"
+    "Démonstration du modèle"
 ]
 
 def render_sidebar():

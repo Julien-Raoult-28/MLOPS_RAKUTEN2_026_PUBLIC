@@ -5,7 +5,7 @@ from core.sidebar import render_sidebar
 from page_modules import presentation
 from page_modules import Objectif_et_Contexte
 from page_modules import Orchestration_et_Deploiement
-from page_modules import PAGE_4
+from page_modules import prediction
 
 st.set_page_config(
     page_title="Rakuten FEV26MLOPS",
@@ -26,5 +26,5 @@ elif page == "Objectif et Contexte":
 elif page == "Orchestration et Déploiement":
     Orchestration_et_Deploiement.run()
 
-elif page == "PAGE_4":
-    PAGE_4.run()
+elif page == "Démonstration du modèle":
+    prediction.run()
