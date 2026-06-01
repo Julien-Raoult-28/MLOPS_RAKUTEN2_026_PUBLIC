@@ -24,3 +24,18 @@ streamlit run streamlit_app.py
 git add app_streamlit/
 git commit -m "Update Streamlit app"
 git push origin main
+
+
+
+
+------------------------------------------------------------------------------
+Mettre à jour les références du dépôt distant :
+git fetch origin
+
+Récupérer uniquement le dossier et le fichier :
+git restore --source=origin/main app_streamlit streamlit_app.py
+
+Vérifier les modifications :
+git status
+
+Tu verras les fichiers récupérés comme modifiés dans ton working tree.
