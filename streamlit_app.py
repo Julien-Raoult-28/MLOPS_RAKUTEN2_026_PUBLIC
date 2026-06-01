@@ -1,15 +1,15 @@
 import streamlit as st
 
-from streamlit.core.layout import apply_layout
-from streamlit.core.sidebar import render_sidebar
-from streamlit.page_modules import presentation
-from streamlit.page_modules import Objectif_et_Contexte
-from streamlit.page_modules import Orchestration_et_Deploiement
-from streamlit.page_modules import prediction
+from app_streamlit.core.layout import apply_layout
+from app_streamlit.core.sidebar import render_sidebar
+from app_streamlit.page_modules import presentation
+from app_streamlit.page_modules import Objectif_et_Contexte
+from app_streamlit.page_modules import Orchestration_et_Deploiement
+from app_streamlit.page_modules import prediction
 
 st.set_page_config(
     page_title="Rakuten FEV26MLOPS",
-    page_icon="assets/images/favicon_Rakuten.png",
+    page_icon="app_streamlit/assets/images/favicon_Rakuten.png",
     layout="wide"
 )
 
