@@ -17,10 +17,10 @@ apply_layout()
 
 page = render_sidebar()
 
-if page == "Présentation du projet":
-    presentation.run()
+#if page == "Présentation du projet":
+#    presentation.run()
 
-elif page == "Objectif et Contexte":
+if page == "Objectif et Contexte":
     Objectif_et_Contexte.run()
 
 elif page == "Orchestration et Déploiement":
