@@ -1,7 +1,6 @@
 import streamlit as st
 
 PAGES = [
-    "Présentation du projet",
     "Objectif et Contexte",
     "Orchestration et Déploiement",
     "Démonstration du modèle"
@@ -21,7 +20,8 @@ def render_sidebar():
         **Auteurs :**  
         Angella FONTAINE  
         Fatiha IDDER  
-        Julien RAOULT
+        Julien RAOULT  
+        Dimitri KAMDEM
         """)
 
     return page
