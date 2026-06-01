@@ -21,6 +21,6 @@ FEV26-CMLOPS-RAKUTEN/
 Pour lancer streamlit
 streamlit run streamlit_app.py
 
-git add streamlit/
+git add app_streamlit/
 git commit -m "Update Streamlit app"
 git push origin main
