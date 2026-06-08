@@ -9,9 +9,14 @@ Cette API expose un endpoint /predict permettant deux modes :
 La sécurité est assurée par un token transmis dans l’en-tête HTTP.
 """
 
+import logging
+
 from fastapi import FastAPI, HTTPException, Header
 from src.services.prediction_service import predict_product
 from src.api.schemas import PredictionRequest, PredictionResponse
+from src.api.utils import load_model_from_registry
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Configuration API
@@ -28,6 +33,25 @@ app = FastAPI(
     ),
     version="1.0.0",
 )
+
+
+# ---------------------------------------------------------------------------
+# Préchargement du modèle au démarrage
+# ---------------------------------------------------------------------------
+
+@app.on_event("startup")
+def _preload_production_model() -> None:
+    """
+    Précharge le modèle Production dans le cache au démarrage de l'API.
+
+    Best-effort : si MLflow est indisponible au boot, l'API démarre quand même
+    et le modèle sera chargé (et mis en cache) à la première requête.
+    """
+    try:
+        load_model_from_registry()
+        logger.info("Modèle Production préchargé au démarrage.")
+    except Exception as exc:  # noqa: BLE001 - on ne veut pas bloquer le boot
+        logger.warning("Préchargement du modèle Production impossible : %s", exc)
 
 # ---------------------------------------------------------------------------
 # Middleware de sécurité

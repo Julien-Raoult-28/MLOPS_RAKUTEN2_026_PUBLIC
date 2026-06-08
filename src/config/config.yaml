@@ -8,11 +8,44 @@ data:
 model:
   C: 1
   max_iter_fast: 500
-  max_iter_full: 20000
+  max_iter_full: 20000        # peut etre abaisse (ex: 3000) : LinearSVC converge souvent avant
   max_features_word_fast: 500
   max_features_word_full: 20000
   max_features_desc_fast: 800
   max_features_desc_full: 30000
+
+
+# ---------------------------------------------------------------------------
+# Configuration du pipeline de features (TF-IDF)
+# ---------------------------------------------------------------------------
+# Les valeurs par defaut ci-dessous REPRODUISENT EXACTEMENT le comportement
+# historique du pipeline. Modifier ici permet d'alleger CPU/RAM sans toucher
+# au code. Les toggles "features" permettent de mesurer l'impact accuracy
+# d'une feature en l'activant/desactivant (re-entrainer puis comparer).
+pipeline:
+  lowercase: true             # minuscule appliquee par les TF-IDF
+
+  # Activation/desactivation de chaque bloc de features (mesure d'impact #9)
+  features:
+    designation_word: true
+    designation_char: true
+    description_word: true
+    description_char: true    # candidat #1 a la suppression (cout eleve, gain faible)
+    first_words: true         # candidat suppression
+    numbers_units: true       # candidat suppression
+
+  # Parametres des TF-IDF char (char_wb). max_features=null => illimite (actuel)
+  char:
+    designation:
+      ngram_min: 3
+      ngram_max: 5
+      min_df: 2
+      max_features: null      # reco: 10000
+    description:
+      ngram_min: 3
+      ngram_max: 6            # reco: 4 (gain RAM enorme)
+      min_df: 3
+      max_features: null      # reco: 10000
 
 
 mlflow:

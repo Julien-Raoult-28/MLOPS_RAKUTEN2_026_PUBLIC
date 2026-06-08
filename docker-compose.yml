@@ -15,7 +15,7 @@ services:
       - "8081:8080"
     environment:
       - MLFLOW_TRACKING_URI=http://mlflow:8080
-      - MLFLOW_SERVER_ALLOWED_HOSTS=mlflow,127.0.0.1,localhost
+      - MLFLOW_SERVER_ALLOWED_HOSTS=mlflow,127.0.0.1,localhost,localhost:8081,127.0.0.1:8081
       - MLFLOW_SERVER_HOST=0.0.0.0
       - MLFLOW_SERVER_PORT=8080
 
@@ -31,11 +31,20 @@ services:
       --backend-store-uri sqlite:////mlflow/data/mlflow.db
       --artifacts-destination /mlflow/data/mlruns
       --serve-artifacts
-      --allowed-hosts mlflow,mlflow:8080,localhost,127.0.0.1,0.0.0.0
+      --allowed-hosts mlflow,mlflow:8080,localhost,127.0.0.1,0.0.0.0,localhost:8081,127.0.0.1:8081
 
     networks:
       - mlops-net
     restart: unless-stopped
+    # Limites ressources (laptop 4 CPU) : empeche un service de monopoliser la machine
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          # Recoit l'upload de l'artefact modele (model.pkl + vocab TF-IDF) depuis
+          # le DAG. 1G -> OOM (connection reset peer) pendant log_model. 2G OK.
+          # Ajustable par membre via .env (MLFLOW_MEM). Defaut = valeur testee.
+          memory: ${MLFLOW_MEM:-2G}
 
 
   # ===========================================================================
@@ -54,10 +63,20 @@ services:
     networks:
       - mlops-net
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          # Inference seule (modele garde en cache memoire). ~150 Mo en pratique.
+          # Ajustable par membre via .env (API_MEM). Defaut = valeur testee.
+          memory: ${API_MEM:-1G}
 
 
   # ===========================================================================
   # Airflow (mode standalone)
+  # ATTENTION : Airflow est lourd (~1-2 Go RAM). Sur ce projet il sert surtout
+  # a la DEMONSTRATION de l'orchestration. Pour un simple entrainement local,
+  # preferer `python src/models/train.py` (bien plus leger que le DAG).
   # ===========================================================================
   airflow:
     build:
@@ -82,6 +101,14 @@ services:
     networks:
       - mlops-net
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1.5'
+          # Entrainement (TF-IDF + LinearSVC sur tout le dataset) : pic memoire.
+          # 2G -> OOM-kill (SIGKILL) de la tache train. 4G testes OK.
+          # Ajustable par membre via .env (AIRFLOW_MEM). Defaut = valeur testee.
+          memory: ${AIRFLOW_MEM:-4G}
 
 
 # =============================================================================

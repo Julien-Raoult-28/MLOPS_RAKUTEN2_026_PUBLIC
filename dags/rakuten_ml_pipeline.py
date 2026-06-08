@@ -34,7 +34,6 @@ from airflow.operators.python import PythonOperator
 RAW_X = "/opt/airflow/data/raw/X_train_update.csv"
 RAW_Y = "/opt/airflow/data/processed/Y_train_encode.csv"
 TMP = "/tmp/rakuten_clean.csv"
-MODEL_PATH = "/opt/airflow/models/1.3_rakuten_model_final.pkl"
 TEST_DATA_PATH = "/opt/airflow/models/test_data.pkl"
 METRICS_PATH = "/opt/airflow/models/metrics.json"
 
@@ -65,18 +64,18 @@ def load_data():
 # -----------------------
 def preprocess():
     """
-    Remplace les NaN par "" et passe le texte en minuscules sur les colonnes
-    designation et description, puis ré-écrit le CSV intermédiaire.
+    Remplace les NaN par "" sur les colonnes designation et description,
+    puis ré-écrit le CSV intermédiaire.
 
-    À noter : le pipeline scikit-learn (TfidfVectorizer) refait déjà ces
-    opérations en interne. On les garde quand même ici pour que le CSV
-    intermédiaire dans /tmp soit propre et facile à inspecter.
+    Le passage en minuscules n'est PAS fait ici : le pipeline scikit-learn
+    (TfidfVectorizer, lowercase=True) s'en charge déjà. Le refaire ici serait
+    un double traitement inutile (CPU gaspillé) sans aucun effet sur le modèle.
     """
     import pandas as pd
 
     df = pd.read_csv(TMP)
-    df["designation"] = df["designation"].fillna("").astype(str).str.lower()
-    df["description"] = df["description"].fillna("").astype(str).str.lower()
+    df["designation"] = df["designation"].fillna("").astype(str)
+    df["description"] = df["description"].fillna("").astype(str)
 
     df.to_csv(TMP, index=False)
     print("PREPROCESS OK")
@@ -113,13 +112,13 @@ def train(**context):
     pipeline = build_pipeline(config)
     pipeline.fit(X_train, y_train)
 
-    # Sauvegarde locale du pipeline et du jeu de test : permet à la tâche
-    # evaluate_model de relire le modèle et de calculer les métriques.
+    # Le modèle n'est PAS sauvegardé en .pkl local : il est déjà loggé dans
+    # MLflow (mlflow.sklearn.log_model ci-dessous) et evaluate_model le
+    # rechargera depuis MLflow via le run_id. On ne persiste localement que le
+    # jeu de test, seul moyen de le passer à la tâche evaluate_model.
     os.makedirs("/opt/airflow/models", exist_ok=True)
     with open(TEST_DATA_PATH, "wb") as f:
         pickle.dump((X_test, y_test), f)
-    with open(MODEL_PATH, "wb") as f:
-        pickle.dump(pipeline, f)
 
     # --- Envoi vers MLflow (format sklearn natif) ---
     mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
@@ -171,13 +170,18 @@ def evaluate_model(**context):
     import pickle
 
     import mlflow
+    import mlflow.sklearn
     from sklearn.metrics import accuracy_score, classification_report
 
     ti = context["ti"]
     run_id = ti.xcom_pull(task_ids="train")
 
-    with open(MODEL_PATH, "rb") as f:
-        pipeline = pickle.load(f)
+    mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
+
+    # Le modèle est rechargé depuis MLflow (artefact du run) au lieu d'un .pkl
+    # local : on évalue ainsi exactement l'artefact qui sera servi en prod.
+    pipeline = mlflow.sklearn.load_model(f"runs:/{run_id}/model")
+
     with open(TEST_DATA_PATH, "rb") as f:
         X_test, y_test = pickle.load(f)
 
@@ -195,7 +199,6 @@ def evaluate_model(**context):
     with open(METRICS_PATH, "w") as f:
         json.dump(metrics, f)
 
-    mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
     with mlflow.start_run(run_id=run_id):
         mlflow.log_metrics({
             "accuracy": float(acc),

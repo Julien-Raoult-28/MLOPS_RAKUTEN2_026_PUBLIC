@@ -1,0 +1,557 @@
+1\. Ce que tu as TRÈS BIEN fait
+
+Avant les optimisations, voici ce qui est réellement solide.
+
+![:coche\_blanche:][image1] Architecture propre
+
+Tu as correctement séparé :
+
+* training  
+* serving  
+* orchestration  
+* tracking  
+* monitoring
+
+Ça paraît banal, mais énormément de projets étudiants mélangent tout.
+
+![:coche\_blanche:][image2] Bonne factorisation du pipeline
+
+Très bon point :
+
+from src.models.pipeline import build\_pipeline
+
+Tu évites :
+
+* divergence train/inference  
+* duplication  
+* bugs silencieux
+
+C’est une vraie pratique production-grade.
+
+![:coche\_blanche:][image3] Très bonne compréhension MLflow Registry
+
+Tu utilises :
+
+models:/rakuten\_classifier@production
+
+Très bon niveau.
+
+Beaucoup de candidats restent sur :
+
+runs:/...
+
+sans comprendre :
+
+* aliases  
+* registry  
+* promotion  
+* rollback
+
+![:coche\_blanche:][image4] Choix cohérent pour machine faible
+
+Le choix :
+
+* TF-IDF  
+* LinearSVC
+
+est EXCELLENT pour ta contrainte hardware.
+
+Tu as évité :
+
+* transformers  
+* BERT  
+* embeddings lourds  
+* GPU dependency
+
+Très bonne décision d’ingénierie.
+
+2\. Les GROS problèmes actuels
+
+Maintenant les vrais sujets.
+
+![:cercle\_rouge:][image5] PROBLÈME \#1 — Ton pipeline est BEAUCOUP trop lourd pour 4 CPU
+
+Ton vrai problème est ici :
+
+char\_tfidf\_designation
+
+char\_tfidf\_description
+
+et surtout :
+
+ngram\_range=(3,6)
+
+C’est extrêmement coûteux.
+
+Pourquoi ?
+
+Les char n-grams :
+
+* explosent le nombre de features  
+* consomment énormément RAM  
+* ralentissent fit \+ predict
+
+Sur Rakuten :
+
+* vocab énorme  
+* textes bruités  
+* dataset large
+
+\=\> ton sparse matrix devient gigantesque.
+
+Impact réel
+
+Ton pipeline génère probablement :
+
+* plusieurs centaines de milliers de colonnes sparse  
+* énormément de RAM  
+* temps d’entraînement énorme
+
+Même avec :
+
+dtype=np.float32
+
+ça reste très lourd.
+
+Recommandation PRIORITAIRE
+
+OPTION A (RECOMMANDÉE)
+
+Supprimer totalement :
+
+description\_char
+
+et garder uniquement :
+
+designation\_char
+
+Pourquoi ?
+
+La description :
+
+* est longue  
+* génère énormément de n-grams  
+* apporte souvent peu de gain marginal
+
+\=\> énorme coût pour faible gain.
+
+OPTION B
+
+Réduire :
+
+ngram\_range=(3,4)
+
+au lieu de :
+
+(3,6)
+
+Gain RAM énorme.
+
+![:cercle\_rouge:][image6] PROBLÈME \#2 — Pas de limite sur les char features
+
+Tu as :
+
+char\_tfidf\_designation \= TfidfVectorizer(...)
+
+MAIS PAS :
+
+max\_features=
+
+Ça peut exploser.
+
+Recommandation critique
+
+Ajoute :
+
+max\_features=10000
+
+ou :
+
+15000
+
+sur les char TF-IDF.
+
+Très important.
+
+![:cercle\_rouge:][image7] PROBLÈME \#3 — max\_iter=20000 est BEAUCOUP trop élevé
+
+Tu as :
+
+max\_iter\_full: 20000
+
+Pour un LinearSVC.
+
+C’est énorme.
+
+Pourquoi c’est mauvais ?
+
+Le modèle converge probablement bien avant.
+
+Tu brûles CPU pour rien.
+
+Recommandation
+
+Teste :
+
+max\_iter\_full: 3000
+
+voire :
+
+5000
+
+Tu gagneras énormément de temps.
+
+![:cercle\_rouge:][image8] PROBLÈME \#4 — Tu charges le modèle MLflow à CHAQUE requête API
+
+Ça c’est le plus gros problème côté serving.
+
+Ici :
+
+model \= load\_model\_from\_registry()
+
+dans :
+
+predict\_product()
+
+Donc :
+
+REQUÊTE HTTP
+
+→ load model
+
+→ MLflow
+
+→ deserialize model
+
+→ predict
+
+![:cri:][image9]
+
+Impact
+
+Très mauvais :
+
+* latence énorme  
+* RAM instable  
+* CPU inutile  
+* MLflow sollicité en permanence
+
+Recommandation MAJEURE
+
+Charger le modèle UNE FOIS au démarrage
+
+Exemple :
+
+MODEL \= load\_model\_from\_registry()
+
+au startup FastAPI.
+
+Puis :
+
+MODEL.predict()
+
+directement.
+
+Impact énorme
+
+Tu passes probablement de :
+
+* 2-5 secondes
+
+à :
+
+* \<100 ms
+
+![:cercle\_rouge:][image10] PROBLÈME \#5 — Double preprocessing inutile
+
+Dans DAG :
+
+.str.lower()
+
+MAIS AUSSI :
+
+lowercase=True
+
+dans TF-IDF.
+
+Tu fais deux fois le travail.
+
+Recommandation
+
+Supprime :
+
+.str.lower()
+
+du preprocess Airflow.
+
+Garde seulement :
+
+fillna("")
+
+![:cercle\_rouge:][image11] PROBLÈME \#6 — Tu sérialises des énormes objets pickle
+
+Ici :
+
+pickle.dump((X\_test, y\_test), f)
+
+et :
+
+pickle.dump(pipeline, f)
+
+Tu écris énormément sur disque.
+
+Recommandation
+
+Évite les dumps locaux inutiles.
+
+MLflow stocke déjà le modèle.
+
+Tu pourrais :
+
+* recalculer metrics directement dans train  
+* supprimer evaluate\_model séparé
+
+![:cercle\_rouge:][image12] PROBLÈME \#7 — Airflow est OVERKILL pour ta machine
+
+Tu n’as :
+
+* ni scheduler distribué  
+* ni workers  
+* ni cluster
+
+et :
+
+airflow standalone
+
+consomme énormément.
+
+Impact
+
+Airflow seul peut consommer :
+
+* 1 à 2 Go RAM
+
+sur ta machine.
+
+Recommandation réaliste
+
+Pour ton laptop :
+
+soit :
+
+garder Airflow uniquement pour soutenance
+
+soit :
+
+désactiver Airflow hors démo
+
+et lancer :
+
+python src/models/train.py
+
+![:cercle\_rouge:][image13] PROBLÈME \#8 — Pas de cache modèle
+
+Même problème ici :
+
+load\_model\_from\_run(run\_id)
+
+Tu reload tout.
+
+Recommandation
+
+Créer cache mémoire :
+
+MODEL\_CACHE \= {}
+
+![:cercle\_rouge:][image14] PROBLÈME \#9 — Trop de features inutiles
+
+Tu as :
+
+* word tfidf  
+* char tfidf  
+* first\_words  
+* numbers\_units
+
+Tout combiné.
+
+Pour ta machine :
+
+c’est trop.
+
+Recommandation réaliste
+
+Pipeline optimal pour TON hardware
+
+Garde seulement :
+
+![:coche\_blanche:][image15] designation\_word
+
+![:coche\_blanche:][image16] description\_word
+
+![:coche\_blanche:][image17] designation\_char
+
+Supprime :
+
+![:x:][image18] description\_char
+
+![:x:][image19] first\_words
+
+![:x:][image20] numbers\_units
+
+Pourquoi ?
+
+Le gain accuracy sera probablement très faible.
+
+Mais le gain CPU/RAM énorme.
+
+![:cercle\_rouge:][image21] PROBLÈME \#10 — Tests d’intégration incohérents
+
+Tu as :
+
+headers \= {"x-token": "monsupersecret"}
+
+MAIS API :
+
+API\_TOKEN \= "RAKUTEN\_SECRET\_123"
+
+\=\> tests cassés.
+
+3\. Ce que je recommande comme architecture FINALE
+
+Pour ta machine :
+
+Pipeline ML optimal
+
+Word TF-IDF
+
+ngram\_range=(1,2)
+
+max\_features=15000
+
+Char TF-IDF
+
+Seulement :
+
+designation\_char
+
+avec :
+
+max\_features=10000
+
+ngram\_range=(3,4)
+
+LinearSVC
+
+max\_iter: 3000
+
+API
+
+Charger modèle au startup
+
+Critique.
+
+Airflow
+
+Utiliser uniquement :
+
+* pour démonstration  
+* pas pour entraînements quotidiens
+
+Docker
+
+Très bien globalement.
+
+Mais :
+
+ajoute limites ressources
+
+Exemple :
+
+deploy:  
+  resources:  
+    limits:  
+      cpus: '1.5'
+
+      memory: 2G
+
+4\. Ce qui impressionnera un recruteur
+
+Le plus impressionnant dans ton projet n’est PAS le modèle.
+
+C’est :
+
+![:coche\_blanche:][image22] séparation des responsabilités
+
+![:coche\_blanche:][image23] registry MLflow
+
+![:coche\_blanche:][image24] alias production
+
+![:coche\_blanche:][image25] orchestration
+
+![:coche\_blanche:][image26] monitoring
+
+![:coche\_blanche:][image27] factorisation pipeline
+
+![:coche\_blanche:][image28] reproductibilité Docker
+
+![:coche\_blanche:][image29] architecture MLOps cohérente
+
+Ça, c’est très bon.
+
+[image1]: <data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABEAAAARCAYAAAA7bUf6AAAB0ElEQVR4XpWUS0sCURTH50MZlRTZkxZ9gzbhIqPHQqPIRw9oJUGQi4jACoNok9poLyLstSiIHriQIEoJekJBkDPTtU7n3NFJuZPR4g9zz9zzO/9z7p2RfLEGCRVEyb5YI5dXrpf1dXl1BiuXuuarJAJ4MSk7Gm9hU4kOFti1M69sYxg3Fe41np3LNQpCEhIG/e7VWrZ47IbQ0RCMxJsBN5gK9wIWg/PMNgxGreBcrs0h5JCc+D1yHUI8uLFRSCwGuFYsoClZ+FBVuH1OiZDJnXYhsVhD0Rp4fXsEpmkIUSCQsJdCfHqPMBCpNnVDLcIncAeq8g6Xd0c8bkBoJgQhwBf7gpObNaGN8Y020NQsd0EaiFSZQ2IXU7wSWdUd6YD+cAWPUTLkgMcKEiCe1TqspnANx5o4xI2xh5drw8HsQR9PLhQQIPQCmN73/csVBxXWdCJ6ez/z+hWSeUpyJ5R8lt4yHKwnpw0Hf0Km9xy8MiUSrDAHvAIlgLIQuoU5jeUHrPJjdYUtAqAsZCTeBDupBd0JzmFsrRVnI94bAYIBPwbow8ofnQ1O05sws99dcpxmMiCOuUpnT6g627toZf8V5iqohET/A9QEav6/QkAQJX0DVQzmxPClaPsAAAAASUVORK5CYII=>
+
+[image2]: <data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABEAAAARCAYAAAA7bUf6AAAB0ElEQVR4XpWUS0sCURTH50MZlRTZkxZ9gzbhIqPHQqPIRw9oJUGQi4jACoNok9poLyLstSiIHriQIEoJekJBkDPTtU7n3NFJuZPR4g9zz9zzO/9z7p2RfLEGCRVEyb5YI5dXrpf1dXl1BiuXuuarJAJ4MSk7Gm9hU4kOFti1M69sYxg3Fe41np3LNQpCEhIG/e7VWrZ47IbQ0RCMxJsBN5gK9wIWg/PMNgxGreBcrs0h5JCc+D1yHUI8uLFRSCwGuFYsoClZ+FBVuH1OiZDJnXYhsVhD0Rp4fXsEpmkIUSCQsJdCfHqPMBCpNnVDLcIncAeq8g6Xd0c8bkBoJgQhwBf7gpObNaGN8Y020NQsd0EaiFSZQ2IXU7wSWdUd6YD+cAWPUTLkgMcKEiCe1TqspnANx5o4xI2xh5drw8HsQR9PLhQQIPQCmN73/csVBxXWdCJ6ez/z+hWSeUpyJ5R8lt4yHKwnpw0Hf0Km9xy8MiUSrDAHvAIlgLIQuoU5jeUHrPJjdYUtAqAsZCTeBDupBd0JzmFsrRVnI94bAYIBPwbow8ofnQ1O05sws99dcpxmMiCOuUpnT6g627toZf8V5iqohET/A9QEav6/QkAQJX0DVQzmxPClaPsAAAAASUVORK5CYII=>
+
+[image3]: <data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABEAAAARCAYAAAA7bUf6AAAB0ElEQVR4XpWUS0sCURTH50MZlRTZkxZ9gzbhIqPHQqPIRw9oJUGQi4jACoNok9poLyLstSiIHriQIEoJekJBkDPTtU7n3NFJuZPR4g9zz9zzO/9z7p2RfLEGCRVEyb5YI5dXrpf1dXl1BiuXuuarJAJ4MSk7Gm9hU4kOFti1M69sYxg3Fe41np3LNQpCEhIG/e7VWrZ47IbQ0RCMxJsBN5gK9wIWg/PMNgxGreBcrs0h5JCc+D1yHUI8uLFRSCwGuFYsoClZ+FBVuH1OiZDJnXYhsVhD0Rp4fXsEpmkIUSCQsJdCfHqPMBCpNnVDLcIncAeq8g6Xd0c8bkBoJgQhwBf7gpObNaGN8Y020NQsd0EaiFSZQ2IXU7wSWdUd6YD+cAWPUTLkgMcKEiCe1TqspnANx5o4xI2xh5drw8HsQR9PLhQQIPQCmN73/csVBxXWdCJ6ez/z+hWSeUpyJ5R8lt4yHKwnpw0Hf0Km9xy8MiUSrDAHvAIlgLIQuoU5jeUHrPJjdYUtAqAsZCTeBDupBd0JzmFsrRVnI94bAYIBPwbow8ofnQ1O05sws99dcpxmMiCOuUpnT6g627toZf8V5iqohET/A9QEav6/QkAQJX0DVQzmxPClaPsAAAAASUVORK5CYII=>
+
+[image4]: <data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABEAAAARCAYAAAA7bUf6AAAB0ElEQVR4XpWUS0sCURTH50MZlRTZkxZ9gzbhIqPHQqPIRw9oJUGQi4jACoNok9poLyLstSiIHriQIEoJekJBkDPTtU7n3NFJuZPR4g9zz9zzO/9z7p2RfLEGCRVEyb5YI5dXrpf1dXl1BiuXuuarJAJ4MSk7Gm9hU4kOFti1M69sYxg3Fe41np3LNQpCEhIG/e7VWrZ47IbQ0RCMxJsBN5gK9wIWg/PMNgxGreBcrs0h5JCc+D1yHUI8uLFRSCwGuFYsoClZ+FBVuH1OiZDJnXYhsVhD0Rp4fXsEpmkIUSCQsJdCfHqPMBCpNnVDLcIncAeq8g6Xd0c8bkBoJgQhwBf7gpObNaGN8Y020NQsd0EaiFSZQ2IXU7wSWdUd6YD+cAWPUTLkgMcKEiCe1TqspnANx5o4xI2xh5drw8HsQR9PLhQQIPQCmN73/csVBxXWdCJ6ez/z+hWSeUpyJ5R8lt4yHKwnpw0Hf0Km9xy8MiUSrDAHvAIlgLIQuoU5jeUHrPJjdYUtAqAsZCTeBDupBd0JzmFsrRVnI94bAYIBPwbow8ofnQ1O05sws99dcpxmMiCOuUpnT6g627toZf8V5iqohET/A9QEav6/QkAQJX0DVQzmxPClaPsAAAAASUVORK5CYII=>
+
+[image5]: <data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABEAAAARCAYAAAA7bUf6AAAB7ElEQVR4Xp2UzUocQRDHCzYImpxCHiB48SDqTvf0xPVjdT9i8AVyzSkXCSS55KSCsqgHI/gCJvgCHjx5CihozK4R8SKIISgmEA9mM+sKtkxZ1ePobq9rxII/DNNVv/lXdfcAVMSGlPDVEbDSIWDuaUfTalxMrDniEym3m3AbC7Qe6cbYVhJ+96oY4ls4TCr00wpPn3v6NOvpcsbTBMF1R2BeCoY8qAH97HZhqTUOxbSHpRfdGmdyAU6Po373GksZ70oEDg56XJ0XBBMGFgKKKQ9OMirmUxIVYzA1iuWXg+j3yyrAtchh1kMCsEJHR32KUM3gJx0dTI7g+fB7LGWfmXZqAcaN0ZYrdSFsDYAWgF2cDb0K9Ic3NUU3iSHlrBewG26LIY/NVwcS6PeJug5scd56OJsGhsySdGTTTq4nziUAtSRHGbLIEDvpf2LIdynPCPIZjlPq430h3yInX9qcR3bCXUUQ3uYG+NHlwt+UmUdgJ9WT2Z1Mxe4stwtz6GjBDNcusBVtALdydWq36M7sJdzYn2QIuA0UAf6lrRPLwQ8LLXFujQ8ROwoqYVHxCbVAO8LDrL47UfALshgbe9IGm67E/R4XiymlWb96leYh8sXjvCoHdlwmmH/KTqd8SIWTpHl6l6N/TWP0dRtwAaAuL+njjhOTAAAAAElFTkSuQmCC>
+
+[image6]: <data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABEAAAARCAYAAAA7bUf6AAAB7ElEQVR4Xp2UzUocQRDHCzYImpxCHiB48SDqTvf0xPVjdT9i8AVyzSkXCSS55KSCsqgHI/gCJvgCHjx5CihozK4R8SKIISgmEA9mM+sKtkxZ1ePobq9rxII/DNNVv/lXdfcAVMSGlPDVEbDSIWDuaUfTalxMrDniEym3m3AbC7Qe6cbYVhJ+96oY4ls4TCr00wpPn3v6NOvpcsbTBMF1R2BeCoY8qAH97HZhqTUOxbSHpRfdGmdyAU6Po373GksZ70oEDg56XJ0XBBMGFgKKKQ9OMirmUxIVYzA1iuWXg+j3yyrAtchh1kMCsEJHR32KUM3gJx0dTI7g+fB7LGWfmXZqAcaN0ZYrdSFsDYAWgF2cDb0K9Ic3NUU3iSHlrBewG26LIY/NVwcS6PeJug5scd56OJsGhsySdGTTTq4nziUAtSRHGbLIEDvpf2LIdynPCPIZjlPq430h3yInX9qcR3bCXUUQ3uYG+NHlwt+UmUdgJ9WT2Z1Mxe4stwtz6GjBDNcusBVtALdydWq36M7sJdzYn2QIuA0UAf6lrRPLwQ8LLXFujQ8ROwoqYVHxCbVAO8LDrL47UfALshgbe9IGm67E/R4XiymlWb96leYh8sXjvCoHdlwmmH/KTqd8SIWTpHl6l6N/TWP0dRtwAaAuL+njjhOTAAAAAElFTkSuQmCC>
+
+[image7]: <data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABEAAAARCAYAAAA7bUf6AAAB7ElEQVR4Xp2UzUocQRDHCzYImpxCHiB48SDqTvf0xPVjdT9i8AVyzSkXCSS55KSCsqgHI/gCJvgCHjx5CihozK4R8SKIISgmEA9mM+sKtkxZ1ePobq9rxII/DNNVv/lXdfcAVMSGlPDVEbDSIWDuaUfTalxMrDniEym3m3AbC7Qe6cbYVhJ+96oY4ls4TCr00wpPn3v6NOvpcsbTBMF1R2BeCoY8qAH97HZhqTUOxbSHpRfdGmdyAU6Po373GksZ70oEDg56XJ0XBBMGFgKKKQ9OMirmUxIVYzA1iuWXg+j3yyrAtchh1kMCsEJHR32KUM3gJx0dTI7g+fB7LGWfmXZqAcaN0ZYrdSFsDYAWgF2cDb0K9Ic3NUU3iSHlrBewG26LIY/NVwcS6PeJug5scd56OJsGhsySdGTTTq4nziUAtSRHGbLIEDvpf2LIdynPCPIZjlPq430h3yInX9qcR3bCXUUQ3uYG+NHlwt+UmUdgJ9WT2Z1Mxe4stwtz6GjBDNcusBVtALdydWq36M7sJdzYn2QIuA0UAf6lrRPLwQ8LLXFujQ8ROwoqYVHxCbVAO8LDrL47UfALshgbe9IGm67E/R4XiymlWb96leYh8sXjvCoHdlwmmH/KTqd8SIWTpHl6l6N/TWP0dRtwAaAuL+njjhOTAAAAAElFTkSuQmCC>
+
+[image8]: <data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABEAAAARCAYAAAA7bUf6AAAB7ElEQVR4Xp2UzUocQRDHCzYImpxCHiB48SDqTvf0xPVjdT9i8AVyzSkXCSS55KSCsqgHI/gCJvgCHjx5CihozK4R8SKIISgmEA9mM+sKtkxZ1ePobq9rxII/DNNVv/lXdfcAVMSGlPDVEbDSIWDuaUfTalxMrDniEym3m3AbC7Qe6cbYVhJ+96oY4ls4TCr00wpPn3v6NOvpcsbTBMF1R2BeCoY8qAH97HZhqTUOxbSHpRfdGmdyAU6Po373GksZ70oEDg56XJ0XBBMGFgKKKQ9OMirmUxIVYzA1iuWXg+j3yyrAtchh1kMCsEJHR32KUM3gJx0dTI7g+fB7LGWfmXZqAcaN0ZYrdSFsDYAWgF2cDb0K9Ic3NUU3iSHlrBewG26LIY/NVwcS6PeJug5scd56OJsGhsySdGTTTq4nziUAtSRHGbLIEDvpf2LIdynPCPIZjlPq430h3yInX9qcR3bCXUUQ3uYG+NHlwt+UmUdgJ9WT2Z1Mxe4stwtz6GjBDNcusBVtALdydWq36M7sJdzYn2QIuA0UAf6lrRPLwQ8LLXFujQ8ROwoqYVHxCbVAO8LDrL47UfALshgbe9IGm67E/R4XiymlWb96leYh8sXjvCoHdlwmmH/KTqd8SIWTpHl6l6N/TWP0dRtwAaAuL+njjhOTAAAAAElFTkSuQmCC>
+
+[image9]: <data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABEAAAARCAYAAAA7bUf6AAADbUlEQVR4Xl1Ta0xURxgd3MYfWo1pY+0fG7QgsihWBXGJgFCtTRr/+EOtT1LFR39o0IumKvUNESpC5dHi8hDx0fqKj7rh7kIFX6CsrhF20YJYQnBlFxa4uzeuu8zpzOBK9UtOTr7znTkzk7mXkA+qunYP2bDfpUne5SfJu4exdieEnvLzwIdLhmt7lo1sO/I06MeDXSRlX/+W9Xvdvev3ejAMdyfTV24+8Irs+MVCpGzr+wEHj8skPfeuRspubpOOWSHl2pCWZ6MMnAOgXJdyrEjLbrqyh/kP5ctDAScrc0l20WXN4QIDMkplZJTLNLNCRuYpIzIr/wfeMz2jTKbcd7jgxuOyvMyg58c/J6RZXkz0Zb8R/bkTXv1FPUouM1xluFaC0r+GwXuhsznz0eKzpX5zfgzpzWInkS9uJfKl1C6jUaKmGgmmOgkvm0/isa0CNXd2oJqBs8VaCnvLWVTfTIWpZjtMRgnPfg89c/vc9xrSeG0laTSsgrluDcz3U+A1HwMd9IPSQTQ2LMWjxmTGy0TP9TdPSmCuX8f91PrHPPRnsJP8W5X4WUfdAnTUL4SjaBwCxRd1Wha9A+8D5Sz6RPg7THHouB5DiMMUE+a4PRfOBh2chWPfBlC2qw9O8wz0WGIF857rIqRwHJz1Ojj+jsIL/jreNu0o1TgNnjvToT6YBWdxMHzOFrgqJ8DdEIlBy1eCXafHw+ewoudECNT7s4R/4M9gvExnIWifssB/b47f9/A7qNVhUGu1UOsi4LmpRaL2YyRFjBHMe67zucc4Fd7aRfAaoti5QiYRKJELPafm+t1lX0M1xEI1MrMcDndVOHQho0UIZ95zXa2KwOtb30ApSoCSH81CIr8kcMURb5UO6P6B4vVP8NYvgVIxFcr50PdClAuhUMrD4WtaDe6DkkL9D+YBnTp2Hcdyghfx9/BqFWhfGqhLYuZo9BdPgS50tLgK577CMHguxIu58HWtANri9LQ1QUPoU50A2r8Fta+l1LER6NmE/iwtHSifTNMWfwrOSsFMCj7jsK+haGfP3jSN4J/4of8HtiiCZ7EErfPBhj5usKdr4rqPkpruHNLO2NBXPDGRMl3MWxMg/G1JQwGBotaZhDIRttm70RIVOVAZ/JHz15FB9iPsW8ohQb15X4ygLdFJbJ4qAhgC9R+8AMmfuIfjfgAAAABJRU5ErkJggg==>
+
+[image10]: <data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABEAAAARCAYAAAA7bUf6AAAB7ElEQVR4Xp2UzUocQRDHCzYImpxCHiB48SDqTvf0xPVjdT9i8AVyzSkXCSS55KSCsqgHI/gCJvgCHjx5CihozK4R8SKIISgmEA9mM+sKtkxZ1ePobq9rxII/DNNVv/lXdfcAVMSGlPDVEbDSIWDuaUfTalxMrDniEym3m3AbC7Qe6cbYVhJ+96oY4ls4TCr00wpPn3v6NOvpcsbTBMF1R2BeCoY8qAH97HZhqTUOxbSHpRfdGmdyAU6Po373GksZ70oEDg56XJ0XBBMGFgKKKQ9OMirmUxIVYzA1iuWXg+j3yyrAtchh1kMCsEJHR32KUM3gJx0dTI7g+fB7LGWfmXZqAcaN0ZYrdSFsDYAWgF2cDb0K9Ic3NUU3iSHlrBewG26LIY/NVwcS6PeJug5scd56OJsGhsySdGTTTq4nziUAtSRHGbLIEDvpf2LIdynPCPIZjlPq430h3yInX9qcR3bCXUUQ3uYG+NHlwt+UmUdgJ9WT2Z1Mxe4stwtz6GjBDNcusBVtALdydWq36M7sJdzYn2QIuA0UAf6lrRPLwQ8LLXFujQ8ROwoqYVHxCbVAO8LDrL47UfALshgbe9IGm67E/R4XiymlWb96leYh8sXjvCoHdlwmmH/KTqd8SIWTpHl6l6N/TWP0dRtwAaAuL+njjhOTAAAAAElFTkSuQmCC>
+
+[image11]: <data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABEAAAARCAYAAAA7bUf6AAAB7ElEQVR4Xp2UzUocQRDHCzYImpxCHiB48SDqTvf0xPVjdT9i8AVyzSkXCSS55KSCsqgHI/gCJvgCHjx5CihozK4R8SKIISgmEA9mM+sKtkxZ1ePobq9rxII/DNNVv/lXdfcAVMSGlPDVEbDSIWDuaUfTalxMrDniEym3m3AbC7Qe6cbYVhJ+96oY4ls4TCr00wpPn3v6NOvpcsbTBMF1R2BeCoY8qAH97HZhqTUOxbSHpRfdGmdyAU6Po373GksZ70oEDg56XJ0XBBMGFgKKKQ9OMirmUxIVYzA1iuWXg+j3yyrAtchh1kMCsEJHR32KUM3gJx0dTI7g+fB7LGWfmXZqAcaN0ZYrdSFsDYAWgF2cDb0K9Ic3NUU3iSHlrBewG26LIY/NVwcS6PeJug5scd56OJsGhsySdGTTTq4nziUAtSRHGbLIEDvpf2LIdynPCPIZjlPq430h3yInX9qcR3bCXUUQ3uYG+NHlwt+UmUdgJ9WT2Z1Mxe4stwtz6GjBDNcusBVtALdydWq36M7sJdzYn2QIuA0UAf6lrRPLwQ8LLXFujQ8ROwoqYVHxCbVAO8LDrL47UfALshgbe9IGm67E/R4XiymlWb96leYh8sXjvCoHdlwmmH/KTqd8SIWTpHl6l6N/TWP0dRtwAaAuL+njjhOTAAAAAElFTkSuQmCC>
+
+[image12]: <data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABEAAAARCAYAAAA7bUf6AAAB7ElEQVR4Xp2UzUocQRDHCzYImpxCHiB48SDqTvf0xPVjdT9i8AVyzSkXCSS55KSCsqgHI/gCJvgCHjx5CihozK4R8SKIISgmEA9mM+sKtkxZ1ePobq9rxII/DNNVv/lXdfcAVMSGlPDVEbDSIWDuaUfTalxMrDniEym3m3AbC7Qe6cbYVhJ+96oY4ls4TCr00wpPn3v6NOvpcsbTBMF1R2BeCoY8qAH97HZhqTUOxbSHpRfdGmdyAU6Po373GksZ70oEDg56XJ0XBBMGFgKKKQ9OMirmUxIVYzA1iuWXg+j3yyrAtchh1kMCsEJHR32KUM3gJx0dTI7g+fB7LGWfmXZqAcaN0ZYrdSFsDYAWgF2cDb0K9Ic3NUU3iSHlrBewG26LIY/NVwcS6PeJug5scd56OJsGhsySdGTTTq4nziUAtSRHGbLIEDvpf2LIdynPCPIZjlPq430h3yInX9qcR3bCXUUQ3uYG+NHlwt+UmUdgJ9WT2Z1Mxe4stwtz6GjBDNcusBVtALdydWq36M7sJdzYn2QIuA0UAf6lrRPLwQ8LLXFujQ8ROwoqYVHxCbVAO8LDrL47UfALshgbe9IGm67E/R4XiymlWb96leYh8sXjvCoHdlwmmH/KTqd8SIWTpHl6l6N/TWP0dRtwAaAuL+njjhOTAAAAAElFTkSuQmCC>
+
+[image13]: <data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABEAAAARCAYAAAA7bUf6AAAB7ElEQVR4Xp2UzUocQRDHCzYImpxCHiB48SDqTvf0xPVjdT9i8AVyzSkXCSS55KSCsqgHI/gCJvgCHjx5CihozK4R8SKIISgmEA9mM+sKtkxZ1ePobq9rxII/DNNVv/lXdfcAVMSGlPDVEbDSIWDuaUfTalxMrDniEym3m3AbC7Qe6cbYVhJ+96oY4ls4TCr00wpPn3v6NOvpcsbTBMF1R2BeCoY8qAH97HZhqTUOxbSHpRfdGmdyAU6Po373GksZ70oEDg56XJ0XBBMGFgKKKQ9OMirmUxIVYzA1iuWXg+j3yyrAtchh1kMCsEJHR32KUM3gJx0dTI7g+fB7LGWfmXZqAcaN0ZYrdSFsDYAWgF2cDb0K9Ic3NUU3iSHlrBewG26LIY/NVwcS6PeJug5scd56OJsGhsySdGTTTq4nziUAtSRHGbLIEDvpf2LIdynPCPIZjlPq430h3yInX9qcR3bCXUUQ3uYG+NHlwt+UmUdgJ9WT2Z1Mxe4stwtz6GjBDNcusBVtALdydWq36M7sJdzYn2QIuA0UAf6lrRPLwQ8LLXFujQ8ROwoqYVHxCbVAO8LDrL47UfALshgbe9IGm67E/R4XiymlWb96leYh8sXjvCoHdlwmmH/KTqd8SIWTpHl6l6N/TWP0dRtwAaAuL+njjhOTAAAAAElFTkSuQmCC>
+
+[image14]: <data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABEAAAARCAYAAAA7bUf6AAAB7ElEQVR4Xp2UzUocQRDHCzYImpxCHiB48SDqTvf0xPVjdT9i8AVyzSkXCSS55KSCsqgHI/gCJvgCHjx5CihozK4R8SKIISgmEA9mM+sKtkxZ1ePobq9rxII/DNNVv/lXdfcAVMSGlPDVEbDSIWDuaUfTalxMrDniEym3m3AbC7Qe6cbYVhJ+96oY4ls4TCr00wpPn3v6NOvpcsbTBMF1R2BeCoY8qAH97HZhqTUOxbSHpRfdGmdyAU6Po373GksZ70oEDg56XJ0XBBMGFgKKKQ9OMirmUxIVYzA1iuWXg+j3yyrAtchh1kMCsEJHR32KUM3gJx0dTI7g+fB7LGWfmXZqAcaN0ZYrdSFsDYAWgF2cDb0K9Ic3NUU3iSHlrBewG26LIY/NVwcS6PeJug5scd56OJsGhsySdGTTTq4nziUAtSRHGbLIEDvpf2LIdynPCPIZjlPq430h3yInX9qcR3bCXUUQ3uYG+NHlwt+UmUdgJ9WT2Z1Mxe4stwtz6GjBDNcusBVtALdydWq36M7sJdzYn2QIuA0UAf6lrRPLwQ8LLXFujQ8ROwoqYVHxCbVAO8LDrL47UfALshgbe9IGm67E/R4XiymlWb96leYh8sXjvCoHdlwmmH/KTqd8SIWTpHl6l6N/TWP0dRtwAaAuL+njjhOTAAAAAElFTkSuQmCC>
+
+[image15]: <data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABEAAAARCAYAAAA7bUf6AAAB0ElEQVR4XpWUS0sCURTH50MZlRTZkxZ9gzbhIqPHQqPIRw9oJUGQi4jACoNok9poLyLstSiIHriQIEoJekJBkDPTtU7n3NFJuZPR4g9zz9zzO/9z7p2RfLEGCRVEyb5YI5dXrpf1dXl1BiuXuuarJAJ4MSk7Gm9hU4kOFti1M69sYxg3Fe41np3LNQpCEhIG/e7VWrZ47IbQ0RCMxJsBN5gK9wIWg/PMNgxGreBcrs0h5JCc+D1yHUI8uLFRSCwGuFYsoClZ+FBVuH1OiZDJnXYhsVhD0Rp4fXsEpmkIUSCQsJdCfHqPMBCpNnVDLcIncAeq8g6Xd0c8bkBoJgQhwBf7gpObNaGN8Y020NQsd0EaiFSZQ2IXU7wSWdUd6YD+cAWPUTLkgMcKEiCe1TqspnANx5o4xI2xh5drw8HsQR9PLhQQIPQCmN73/csVBxXWdCJ6ez/z+hWSeUpyJ5R8lt4yHKwnpw0Hf0Km9xy8MiUSrDAHvAIlgLIQuoU5jeUHrPJjdYUtAqAsZCTeBDupBd0JzmFsrRVnI94bAYIBPwbow8ofnQ1O05sws99dcpxmMiCOuUpnT6g627toZf8V5iqohET/A9QEav6/QkAQJX0DVQzmxPClaPsAAAAASUVORK5CYII=>
+
+[image16]: <data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABEAAAARCAYAAAA7bUf6AAAB0ElEQVR4XpWUS0sCURTH50MZlRTZkxZ9gzbhIqPHQqPIRw9oJUGQi4jACoNok9poLyLstSiIHriQIEoJekJBkDPTtU7n3NFJuZPR4g9zz9zzO/9z7p2RfLEGCRVEyb5YI5dXrpf1dXl1BiuXuuarJAJ4MSk7Gm9hU4kOFti1M69sYxg3Fe41np3LNQpCEhIG/e7VWrZ47IbQ0RCMxJsBN5gK9wIWg/PMNgxGreBcrs0h5JCc+D1yHUI8uLFRSCwGuFYsoClZ+FBVuH1OiZDJnXYhsVhD0Rp4fXsEpmkIUSCQsJdCfHqPMBCpNnVDLcIncAeq8g6Xd0c8bkBoJgQhwBf7gpObNaGN8Y020NQsd0EaiFSZQ2IXU7wSWdUd6YD+cAWPUTLkgMcKEiCe1TqspnANx5o4xI2xh5drw8HsQR9PLhQQIPQCmN73/csVBxXWdCJ6ez/z+hWSeUpyJ5R8lt4yHKwnpw0Hf0Km9xy8MiUSrDAHvAIlgLIQuoU5jeUHrPJjdYUtAqAsZCTeBDupBd0JzmFsrRVnI94bAYIBPwbow8ofnQ1O05sws99dcpxmMiCOuUpnT6g627toZf8V5iqohET/A9QEav6/QkAQJX0DVQzmxPClaPsAAAAASUVORK5CYII=>
+
+[image17]: <data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABEAAAARCAYAAAA7bUf6AAAB0ElEQVR4XpWUS0sCURTH50MZlRTZkxZ9gzbhIqPHQqPIRw9oJUGQi4jACoNok9poLyLstSiIHriQIEoJekJBkDPTtU7n3NFJuZPR4g9zz9zzO/9z7p2RfLEGCRVEyb5YI5dXrpf1dXl1BiuXuuarJAJ4MSk7Gm9hU4kOFti1M69sYxg3Fe41np3LNQpCEhIG/e7VWrZ47IbQ0RCMxJsBN5gK9wIWg/PMNgxGreBcrs0h5JCc+D1yHUI8uLFRSCwGuFYsoClZ+FBVuH1OiZDJnXYhsVhD0Rp4fXsEpmkIUSCQsJdCfHqPMBCpNnVDLcIncAeq8g6Xd0c8bkBoJgQhwBf7gpObNaGN8Y020NQsd0EaiFSZQ2IXU7wSWdUd6YD+cAWPUTLkgMcKEiCe1TqspnANx5o4xI2xh5drw8HsQR9PLhQQIPQCmN73/csVBxXWdCJ6ez/z+hWSeUpyJ5R8lt4yHKwnpw0Hf0Km9xy8MiUSrDAHvAIlgLIQuoU5jeUHrPJjdYUtAqAsZCTeBDupBd0JzmFsrRVnI94bAYIBPwbow8ofnQ1O05sws99dcpxmMiCOuUpnT6g627toZf8V5iqohET/A9QEav6/QkAQJX0DVQzmxPClaPsAAAAASUVORK5CYII=>
+
+[image18]: <data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABEAAAARCAYAAAA7bUf6AAAB80lEQVR4Xo2U30rcQBSHs0mfp7ozmVEXpCZZQVqKFooiKILIKr6B79AFvfN19MZqW2/sXbGXXpRC2U2yGmEy/Z2TP7vutqsHhoXJyTffOWeyTj9UjR8LvrhoiuPLpnC/SulMiyTSTj/U7o2S3WspBfIbThyqWTywD22dYaNzKYT3P1AMAPI9rE4a6ey7lpZAtNkdHGxn8eJsft/WBjYWIPeLEE8AZIDl0YFYBiu/W/Tp4GOCuEl7rpPubZrkw7LFaZZAV4BURnGk2IIAccgQ+jXfYI4ct3roxYG0g8MdS6BBVBjBxv3cFLUBYGTAENhaAIalV6rxkrTp/pZJVqMiEaCz1wzByYr3MAgzAaiiBDkEYqP3QY7m5ZgcAbgH6dCgLnUiRo3QbJMsz3OPyKAXTDEYj9ooYIO6jKvnDKrgl3GRygnko714kQkD6jHyi/mvN8r8bPk2WYvy9OPK9J4UJahXRf3FGDFmGrHF58ClUbPTjXe296/pVPdkVP33kjJlD7zzGR6xSyC6kAQaMSpAnBDpTlJcZTYYbyKbtucmjMob6zlJqE6QlFEP/gRDg/Gai5JLo911k66/tbctPwPoE/VCkAEAtMHkcUAVBOphev1IHw1C/xH5dKBPI23g65WosYuNZ/9PMDHHrmgX+aeAtLAafwGesq9WR1A/HwAAAABJRU5ErkJggg==>
+
+[image19]: <data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABEAAAARCAYAAAA7bUf6AAAB80lEQVR4Xo2U30rcQBSHs0mfp7ozmVEXpCZZQVqKFooiKILIKr6B79AFvfN19MZqW2/sXbGXXpRC2U2yGmEy/Z2TP7vutqsHhoXJyTffOWeyTj9UjR8LvrhoiuPLpnC/SulMiyTSTj/U7o2S3WspBfIbThyqWTywD22dYaNzKYT3P1AMAPI9rE4a6ey7lpZAtNkdHGxn8eJsft/WBjYWIPeLEE8AZIDl0YFYBiu/W/Tp4GOCuEl7rpPubZrkw7LFaZZAV4BURnGk2IIAccgQ+jXfYI4ct3roxYG0g8MdS6BBVBjBxv3cFLUBYGTAENhaAIalV6rxkrTp/pZJVqMiEaCz1wzByYr3MAgzAaiiBDkEYqP3QY7m5ZgcAbgH6dCgLnUiRo3QbJMsz3OPyKAXTDEYj9ooYIO6jKvnDKrgl3GRygnko714kQkD6jHyi/mvN8r8bPk2WYvy9OPK9J4UJahXRf3FGDFmGrHF58ClUbPTjXe296/pVPdkVP33kjJlD7zzGR6xSyC6kAQaMSpAnBDpTlJcZTYYbyKbtucmjMob6zlJqE6QlFEP/gRDg/Gai5JLo911k66/tbctPwPoE/VCkAEAtMHkcUAVBOphev1IHw1C/xH5dKBPI23g65WosYuNZ/9PMDHHrmgX+aeAtLAafwGesq9WR1A/HwAAAABJRU5ErkJggg==>
+
+[image20]: <data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABEAAAARCAYAAAA7bUf6AAAB80lEQVR4Xo2U30rcQBSHs0mfp7ozmVEXpCZZQVqKFooiKILIKr6B79AFvfN19MZqW2/sXbGXXpRC2U2yGmEy/Z2TP7vutqsHhoXJyTffOWeyTj9UjR8LvrhoiuPLpnC/SulMiyTSTj/U7o2S3WspBfIbThyqWTywD22dYaNzKYT3P1AMAPI9rE4a6ey7lpZAtNkdHGxn8eJsft/WBjYWIPeLEE8AZIDl0YFYBiu/W/Tp4GOCuEl7rpPubZrkw7LFaZZAV4BURnGk2IIAccgQ+jXfYI4ct3roxYG0g8MdS6BBVBjBxv3cFLUBYGTAENhaAIalV6rxkrTp/pZJVqMiEaCz1wzByYr3MAgzAaiiBDkEYqP3QY7m5ZgcAbgH6dCgLnUiRo3QbJMsz3OPyKAXTDEYj9ooYIO6jKvnDKrgl3GRygnko714kQkD6jHyi/mvN8r8bPk2WYvy9OPK9J4UJahXRf3FGDFmGrHF58ClUbPTjXe296/pVPdkVP33kjJlD7zzGR6xSyC6kAQaMSpAnBDpTlJcZTYYbyKbtucmjMob6zlJqE6QlFEP/gRDg/Gai5JLo911k66/tbctPwPoE/VCkAEAtMHkcUAVBOphev1IHw1C/xH5dKBPI23g65WosYuNZ/9PMDHHrmgX+aeAtLAafwGesq9WR1A/HwAAAABJRU5ErkJggg==>
+
+[image21]: <data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABEAAAARCAYAAAA7bUf6AAAB7ElEQVR4Xp2UzUocQRDHCzYImpxCHiB48SDqTvf0xPVjdT9i8AVyzSkXCSS55KSCsqgHI/gCJvgCHjx5CihozK4R8SKIISgmEA9mM+sKtkxZ1ePobq9rxII/DNNVv/lXdfcAVMSGlPDVEbDSIWDuaUfTalxMrDniEym3m3AbC7Qe6cbYVhJ+96oY4ls4TCr00wpPn3v6NOvpcsbTBMF1R2BeCoY8qAH97HZhqTUOxbSHpRfdGmdyAU6Po373GksZ70oEDg56XJ0XBBMGFgKKKQ9OMirmUxIVYzA1iuWXg+j3yyrAtchh1kMCsEJHR32KUM3gJx0dTI7g+fB7LGWfmXZqAcaN0ZYrdSFsDYAWgF2cDb0K9Ic3NUU3iSHlrBewG26LIY/NVwcS6PeJug5scd56OJsGhsySdGTTTq4nziUAtSRHGbLIEDvpf2LIdynPCPIZjlPq430h3yInX9qcR3bCXUUQ3uYG+NHlwt+UmUdgJ9WT2Z1Mxe4stwtz6GjBDNcusBVtALdydWq36M7sJdzYn2QIuA0UAf6lrRPLwQ8LLXFujQ8ROwoqYVHxCbVAO8LDrL47UfALshgbe9IGm67E/R4XiymlWb96leYh8sXjvCoHdlwmmH/KTqd8SIWTpHl6l6N/TWP0dRtwAaAuL+njjhOTAAAAAElFTkSuQmCC>
+
+[image22]: <data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABEAAAARCAYAAAA7bUf6AAAB0ElEQVR4XpWUS0sCURTH50MZlRTZkxZ9gzbhIqPHQqPIRw9oJUGQi4jACoNok9poLyLstSiIHriQIEoJekJBkDPTtU7n3NFJuZPR4g9zz9zzO/9z7p2RfLEGCRVEyb5YI5dXrpf1dXl1BiuXuuarJAJ4MSk7Gm9hU4kOFti1M69sYxg3Fe41np3LNQpCEhIG/e7VWrZ47IbQ0RCMxJsBN5gK9wIWg/PMNgxGreBcrs0h5JCc+D1yHUI8uLFRSCwGuFYsoClZ+FBVuH1OiZDJnXYhsVhD0Rp4fXsEpmkIUSCQsJdCfHqPMBCpNnVDLcIncAeq8g6Xd0c8bkBoJgQhwBf7gpObNaGN8Y020NQsd0EaiFSZQ2IXU7wSWdUd6YD+cAWPUTLkgMcKEiCe1TqspnANx5o4xI2xh5drw8HsQR9PLhQQIPQCmN73/csVBxXWdCJ6ez/z+hWSeUpyJ5R8lt4yHKwnpw0Hf0Km9xy8MiUSrDAHvAIlgLIQuoU5jeUHrPJjdYUtAqAsZCTeBDupBd0JzmFsrRVnI94bAYIBPwbow8ofnQ1O05sws99dcpxmMiCOuUpnT6g627toZf8V5iqohET/A9QEav6/QkAQJX0DVQzmxPClaPsAAAAASUVORK5CYII=>
+
+[image23]: <data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABEAAAARCAYAAAA7bUf6AAAB0ElEQVR4XpWUS0sCURTH50MZlRTZkxZ9gzbhIqPHQqPIRw9oJUGQi4jACoNok9poLyLstSiIHriQIEoJekJBkDPTtU7n3NFJuZPR4g9zz9zzO/9z7p2RfLEGCRVEyb5YI5dXrpf1dXl1BiuXuuarJAJ4MSk7Gm9hU4kOFti1M69sYxg3Fe41np3LNQpCEhIG/e7VWrZ47IbQ0RCMxJsBN5gK9wIWg/PMNgxGreBcrs0h5JCc+D1yHUI8uLFRSCwGuFYsoClZ+FBVuH1OiZDJnXYhsVhD0Rp4fXsEpmkIUSCQsJdCfHqPMBCpNnVDLcIncAeq8g6Xd0c8bkBoJgQhwBf7gpObNaGN8Y020NQsd0EaiFSZQ2IXU7wSWdUd6YD+cAWPUTLkgMcKEiCe1TqspnANx5o4xI2xh5drw8HsQR9PLhQQIPQCmN73/csVBxXWdCJ6ez/z+hWSeUpyJ5R8lt4yHKwnpw0Hf0Km9xy8MiUSrDAHvAIlgLIQuoU5jeUHrPJjdYUtAqAsZCTeBDupBd0JzmFsrRVnI94bAYIBPwbow8ofnQ1O05sws99dcpxmMiCOuUpnT6g627toZf8V5iqohET/A9QEav6/QkAQJX0DVQzmxPClaPsAAAAASUVORK5CYII=>
+
+[image24]: <data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABEAAAARCAYAAAA7bUf6AAAB0ElEQVR4XpWUS0sCURTH50MZlRTZkxZ9gzbhIqPHQqPIRw9oJUGQi4jACoNok9poLyLstSiIHriQIEoJekJBkDPTtU7n3NFJuZPR4g9zz9zzO/9z7p2RfLEGCRVEyb5YI5dXrpf1dXl1BiuXuuarJAJ4MSk7Gm9hU4kOFti1M69sYxg3Fe41np3LNQpCEhIG/e7VWrZ47IbQ0RCMxJsBN5gK9wIWg/PMNgxGreBcrs0h5JCc+D1yHUI8uLFRSCwGuFYsoClZ+FBVuH1OiZDJnXYhsVhD0Rp4fXsEpmkIUSCQsJdCfHqPMBCpNnVDLcIncAeq8g6Xd0c8bkBoJgQhwBf7gpObNaGN8Y020NQsd0EaiFSZQ2IXU7wSWdUd6YD+cAWPUTLkgMcKEiCe1TqspnANx5o4xI2xh5drw8HsQR9PLhQQIPQCmN73/csVBxXWdCJ6ez/z+hWSeUpyJ5R8lt4yHKwnpw0Hf0Km9xy8MiUSrDAHvAIlgLIQuoU5jeUHrPJjdYUtAqAsZCTeBDupBd0JzmFsrRVnI94bAYIBPwbow8ofnQ1O05sws99dcpxmMiCOuUpnT6g627toZf8V5iqohET/A9QEav6/QkAQJX0DVQzmxPClaPsAAAAASUVORK5CYII=>
+
+[image25]: <data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABEAAAARCAYAAAA7bUf6AAAB0ElEQVR4XpWUS0sCURTH50MZlRTZkxZ9gzbhIqPHQqPIRw9oJUGQi4jACoNok9poLyLstSiIHriQIEoJekJBkDPTtU7n3NFJuZPR4g9zz9zzO/9z7p2RfLEGCRVEyb5YI5dXrpf1dXl1BiuXuuarJAJ4MSk7Gm9hU4kOFti1M69sYxg3Fe41np3LNQpCEhIG/e7VWrZ47IbQ0RCMxJsBN5gK9wIWg/PMNgxGreBcrs0h5JCc+D1yHUI8uLFRSCwGuFYsoClZ+FBVuH1OiZDJnXYhsVhD0Rp4fXsEpmkIUSCQsJdCfHqPMBCpNnVDLcIncAeq8g6Xd0c8bkBoJgQhwBf7gpObNaGN8Y020NQsd0EaiFSZQ2IXU7wSWdUd6YD+cAWPUTLkgMcKEiCe1TqspnANx5o4xI2xh5drw8HsQR9PLhQQIPQCmN73/csVBxXWdCJ6ez/z+hWSeUpyJ5R8lt4yHKwnpw0Hf0Km9xy8MiUSrDAHvAIlgLIQuoU5jeUHrPJjdYUtAqAsZCTeBDupBd0JzmFsrRVnI94bAYIBPwbow8ofnQ1O05sws99dcpxmMiCOuUpnT6g627toZf8V5iqohET/A9QEav6/QkAQJX0DVQzmxPClaPsAAAAASUVORK5CYII=>
+
+[image26]: <data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABEAAAARCAYAAAA7bUf6AAAB0ElEQVR4XpWUS0sCURTH50MZlRTZkxZ9gzbhIqPHQqPIRw9oJUGQi4jACoNok9poLyLstSiIHriQIEoJekJBkDPTtU7n3NFJuZPR4g9zz9zzO/9z7p2RfLEGCRVEyb5YI5dXrpf1dXl1BiuXuuarJAJ4MSk7Gm9hU4kOFti1M69sYxg3Fe41np3LNQpCEhIG/e7VWrZ47IbQ0RCMxJsBN5gK9wIWg/PMNgxGreBcrs0h5JCc+D1yHUI8uLFRSCwGuFYsoClZ+FBVuH1OiZDJnXYhsVhD0Rp4fXsEpmkIUSCQsJdCfHqPMBCpNnVDLcIncAeq8g6Xd0c8bkBoJgQhwBf7gpObNaGN8Y020NQsd0EaiFSZQ2IXU7wSWdUd6YD+cAWPUTLkgMcKEiCe1TqspnANx5o4xI2xh5drw8HsQR9PLhQQIPQCmN73/csVBxXWdCJ6ez/z+hWSeUpyJ5R8lt4yHKwnpw0Hf0Km9xy8MiUSrDAHvAIlgLIQuoU5jeUHrPJjdYUtAqAsZCTeBDupBd0JzmFsrRVnI94bAYIBPwbow8ofnQ1O05sws99dcpxmMiCOuUpnT6g627toZf8V5iqohET/A9QEav6/QkAQJX0DVQzmxPClaPsAAAAASUVORK5CYII=>
+
+[image27]: <data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABEAAAARCAYAAAA7bUf6AAAB0ElEQVR4XpWUS0sCURTH50MZlRTZkxZ9gzbhIqPHQqPIRw9oJUGQi4jACoNok9poLyLstSiIHriQIEoJekJBkDPTtU7n3NFJuZPR4g9zz9zzO/9z7p2RfLEGCRVEyb5YI5dXrpf1dXl1BiuXuuarJAJ4MSk7Gm9hU4kOFti1M69sYxg3Fe41np3LNQpCEhIG/e7VWrZ47IbQ0RCMxJsBN5gK9wIWg/PMNgxGreBcrs0h5JCc+D1yHUI8uLFRSCwGuFYsoClZ+FBVuH1OiZDJnXYhsVhD0Rp4fXsEpmkIUSCQsJdCfHqPMBCpNnVDLcIncAeq8g6Xd0c8bkBoJgQhwBf7gpObNaGN8Y020NQsd0EaiFSZQ2IXU7wSWdUd6YD+cAWPUTLkgMcKEiCe1TqspnANx5o4xI2xh5drw8HsQR9PLhQQIPQCmN73/csVBxXWdCJ6ez/z+hWSeUpyJ5R8lt4yHKwnpw0Hf0Km9xy8MiUSrDAHvAIlgLIQuoU5jeUHrPJjdYUtAqAsZCTeBDupBd0JzmFsrRVnI94bAYIBPwbow8ofnQ1O05sws99dcpxmMiCOuUpnT6g627toZf8V5iqohET/A9QEav6/QkAQJX0DVQzmxPClaPsAAAAASUVORK5CYII=>
+
+[image28]: <data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABEAAAARCAYAAAA7bUf6AAAB0ElEQVR4XpWUS0sCURTH50MZlRTZkxZ9gzbhIqPHQqPIRw9oJUGQi4jACoNok9poLyLstSiIHriQIEoJekJBkDPTtU7n3NFJuZPR4g9zz9zzO/9z7p2RfLEGCRVEyb5YI5dXrpf1dXl1BiuXuuarJAJ4MSk7Gm9hU4kOFti1M69sYxg3Fe41np3LNQpCEhIG/e7VWrZ47IbQ0RCMxJsBN5gK9wIWg/PMNgxGreBcrs0h5JCc+D1yHUI8uLFRSCwGuFYsoClZ+FBVuH1OiZDJnXYhsVhD0Rp4fXsEpmkIUSCQsJdCfHqPMBCpNnVDLcIncAeq8g6Xd0c8bkBoJgQhwBf7gpObNaGN8Y020NQsd0EaiFSZQ2IXU7wSWdUd6YD+cAWPUTLkgMcKEiCe1TqspnANx5o4xI2xh5drw8HsQR9PLhQQIPQCmN73/csVBxXWdCJ6ez/z+hWSeUpyJ5R8lt4yHKwnpw0Hf0Km9xy8MiUSrDAHvAIlgLIQuoU5jeUHrPJjdYUtAqAsZCTeBDupBd0JzmFsrRVnI94bAYIBPwbow8ofnQ1O05sws99dcpxmMiCOuUpnT6g627toZf8V5iqohET/A9QEav6/QkAQJX0DVQzmxPClaPsAAAAASUVORK5CYII=>
+
+[image29]: <data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABEAAAARCAYAAAA7bUf6AAAB0ElEQVR4XpWUS0sCURTH50MZlRTZkxZ9gzbhIqPHQqPIRw9oJUGQi4jACoNok9poLyLstSiIHriQIEoJekJBkDPTtU7n3NFJuZPR4g9zz9zzO/9z7p2RfLEGCRVEyb5YI5dXrpf1dXl1BiuXuuarJAJ4MSk7Gm9hU4kOFti1M69sYxg3Fe41np3LNQpCEhIG/e7VWrZ47IbQ0RCMxJsBN5gK9wIWg/PMNgxGreBcrs0h5JCc+D1yHUI8uLFRSCwGuFYsoClZ+FBVuH1OiZDJnXYhsVhD0Rp4fXsEpmkIUSCQsJdCfHqPMBCpNnVDLcIncAeq8g6Xd0c8bkBoJgQhwBf7gpObNaGN8Y020NQsd0EaiFSZQ2IXU7wSWdUd6YD+cAWPUTLkgMcKEiCe1TqspnANx5o4xI2xh5drw8HsQR9PLhQQIPQCmN73/csVBxXWdCJ6ez/z+hWSeUpyJ5R8lt4yHKwnpw0Hf0Km9xy8MiUSrDAHvAIlgLIQuoU5jeUHrPJjdYUtAqAsZCTeBDupBd0JzmFsrRVnI94bAYIBPwbow8ofnQ1O05sws99dcpxmMiCOuUpnT6g627toZf8V5iqohET/A9QEav6/QkAQJX0DVQzmxPClaPsAAAAASUVORK5CYII=>
