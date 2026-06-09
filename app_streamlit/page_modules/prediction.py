@@ -8,14 +8,15 @@ def load_model():
 
 model = load_model()
 
+mapping_df = pd.read_csv("data/processed/Y_train_encode.csv")
+mapping = mapping_df.set_index("prdtypecode_encoded")["libelle_type_code"].to_dict()
+
 def run():
 
     st.title("Test du modèle Rakuten")
 
     designation = st.text_input("Désignation")
     description = st.text_area("Description")
-
-    st.write("Type du modèle :", type(model))
 
     if st.button("Prédire la catégorie"):
 
@@ -28,7 +29,6 @@ def run():
                 "designation": designation,
                 "description": description
             }])
-
             prediction = model.predict(input_df)[0]
 
             st.success(f"Catégorie : {prediction}")
