@@ -1,7 +1,6 @@
 import streamlit as st
 import joblib
 
-# Chargement du modèle (une seule fois)
 @st.cache_resource
 def load_model():
     return joblib.load("models/model.pkl")
@@ -22,22 +21,22 @@ def run():
         placeholder="Description du produit..."
     )
 
+    st.write("Type du modèle :", type(model))
+
     if st.button("Prédire la catégorie"):
 
         if not designation and not description:
             st.warning("Merci de remplir au moins un champ.")
             return
 
-        # On reconstruit l'input comme ton modèle ML l'attend
         text = f"{designation} {description}"
+
+        st.write("Test input :", text)
 
         try:
             prediction = model.predict([text])[0]
-            st.write("A OK")
 
             st.success(f"Catégorie prédite : {prediction}")
 
         except Exception as e:
             st.error(f"Erreur modèle : {e}")
-    st.write("Type du modèle :", type(model))
-    st.write("Test input :", [text])
