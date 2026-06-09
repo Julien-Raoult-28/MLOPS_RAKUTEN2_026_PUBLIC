@@ -1,5 +1,12 @@
 import streamlit as st
-import requests
+import joblib
+
+# Chargement du modèle (une seule fois)
+@st.cache_resource
+def load_model():
+    return joblib.load("models/model.pkl")
+
+model = load_model()
 
 def run():
 
@@ -17,27 +24,17 @@ def run():
 
     if st.button("Prédire la catégorie"):
 
-        payload = {
-            "designation": designation,
-            "description": description
-        }
+        if not designation and not description:
+            st.warning("Merci de remplir au moins un champ.")
+            return
+
+        # On reconstruit l'input comme ton modèle ML l'attend
+        text = f"{designation} {description}"
 
         try:
-            response = requests.post(
-                "http://localhost:8000/predict",
-                json=payload,
-                timeout=10
-            )
+            prediction = model.predict([text])[0]
 
-            response.raise_for_status()
-
-            result = response.json()
-
-            st.success(
-                f"Catégorie prédite : {result['label']}"
-            )
-
-            st.write("Code catégorie :", result["prediction"])
+            st.success(f"Catégorie prédite : {prediction}")
 
         except Exception as e:
-            st.error(f"Erreur API : {e}")
+            st.error(f"Erreur modèle : {e}")
