@@ -31,7 +31,7 @@ def run():
 
         text = f"{designation} {description}"
 
-        st.write("Test input :", text)
+        st.write("Input :", text)
 
         try:
             prediction = model.predict([text])[0]
