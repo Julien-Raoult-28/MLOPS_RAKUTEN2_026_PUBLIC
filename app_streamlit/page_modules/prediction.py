@@ -29,9 +29,14 @@ def run():
                 "designation": designation,
                 "description": description
             }])
+
             prediction = model.predict(input_df)[0]
 
-            st.success(f"Catégorie : {prediction}")
+            # 🔥 AJOUT IMPORTANT
+            label = mapping.get(prediction, "Inconnu")
+
+            st.success(f"Catégorie : {label}")
+            st.write("Code brut :", prediction)
 
         except Exception as e:
             st.error("Erreur modèle")
