@@ -1,12 +1,18 @@
 import streamlit as st
 import joblib
 
+# =========================
+# Chargement du modèle
+# =========================
 @st.cache_resource
 def load_model():
     return joblib.load("models/model.pkl")
 
 model = load_model()
 
+# =========================
+# App Streamlit
+# =========================
 def run():
 
     st.title("Test du modèle Rakuten")
@@ -23,20 +29,25 @@ def run():
 
     st.write("Type du modèle :", type(model))
 
+    # =========================
+    # Bouton prediction
+    # =========================
     if st.button("Prédire la catégorie"):
 
-        if not designation and not description:
+        # validation input
+        if not designation.strip() and not description.strip():
             st.warning("Merci de remplir au moins un champ.")
             return
 
-        text = f"{designation} {description}"
-
-        st.write("Input :", text)
+        # construction input modèle
+        text = f"{designation} {description}".strip()
 
         try:
+            # prediction sklearn pipeline
             prediction = model.predict([text])[0]
 
             st.success(f"Catégorie prédite : {prediction}")
 
         except Exception as e:
-            st.error(f"Erreur modèle : {e}")
+            st.error("Erreur lors de la prédiction")
+            st.exception(e)
