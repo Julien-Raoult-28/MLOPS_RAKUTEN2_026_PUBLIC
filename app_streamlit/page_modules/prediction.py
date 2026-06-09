@@ -33,8 +33,11 @@ def run():
 
         try:
             prediction = model.predict([text])[0]
+            st.write("A OK")
 
             st.success(f"Catégorie prédite : {prediction}")
 
         except Exception as e:
             st.error(f"Erreur modèle : {e}")
+    st.write("Type du modèle :", type(model))
+    st.write("Test input :", [text])
