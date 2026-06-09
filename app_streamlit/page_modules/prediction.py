@@ -24,7 +24,7 @@ def run():
 
         try:
             response = requests.post(
-                "http://localhost:8000/predict",
+                "https://rakuten-api.onrender.com/predict",
                 json=payload,
                 timeout=10
             )
