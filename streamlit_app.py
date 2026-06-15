@@ -5,6 +5,7 @@ from app_streamlit.core.sidebar import render_sidebar
 from app_streamlit.page_modules import presentation
 from app_streamlit.page_modules import Objectif_et_Contexte
 from app_streamlit.page_modules import Orchestration_et_Deploiement
+from app_streamlit.page_modules import Perspectives
 from app_streamlit.page_modules import prediction
 
 st.set_page_config(
@@ -25,6 +26,9 @@ if page == "Objectif et Contexte":
 
 elif page == "Orchestration et Déploiement":
     Orchestration_et_Deploiement.run()
+
+elif page == "Perspectives":
+    Perspectives.run()
 
 elif page == "Démonstration du modèle":
     prediction.run()

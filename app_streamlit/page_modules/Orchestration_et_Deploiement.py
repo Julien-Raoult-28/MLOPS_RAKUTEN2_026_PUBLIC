@@ -42,40 +42,33 @@ button[data-baseweb="tab"][aria-selected="true"] > div {
         "🔬\nMLflow — tracking et gouvernance modèle",
         "⚙️\nAirflow — orchestration ML",
         "🚀\nFastAPI — serving ML",
-        "📊\nMonitoring — Prometheus & Grafana",
         "🐳\nDocker & infrastructure"
     ])
 
 ###  Architecture globale du système --------------------------------------------------------------------------------------------
-    with tabs[0]:
-     st.markdown("""
+    with tabs[0]: 
+        import base64
+        with open("app_streamlit/assets/images/architecture1.png", "rb") as img_file:
+            img_bytes = img_file.read()
+            encoded = base64.b64encode(img_bytes).decode()
+        st.markdown(f"""
+                    
 <div style="
-    background: linear-gradient(135deg, #fdfdfd, #f0f0f0);
-    padding:20px;
-    border-left:6px solid #bf0000;
-    border-radius:15px;
-    margin: 20px auto;
-    box-shadow: 0 8px 20px rgba(0,0,0,0.1);
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    width:85%;          
-    ">
- 
+            background: linear-gradient(135deg, #fdfdfd, #f0f0f0);
+            padding:5px;
+            border-left:6px solid #bf0000;
+            border-radius:15px;
+            margin: 20px auto;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+            font-family: 'Segoe UI';
+            width:85%;
+">
 
-<h5 style="color:#bf0000; margin-top:0;">Vue macro (production simulée)</h5>  
-                 
-Airflow (orchestration)  
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;**↓**    
-MLflow (tracking + registry)  
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;**↓**   
-FastAPI (serving)  
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;**↓**   
-Prometheus (metrics)  
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;**↓**   
-Grafana (visualisation)  
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;**↓**   
-Streamlit (UI métier)  
-  
+<h4 style="color:#bf0000;text-align:center;">Architecture du projet</h4>
+<div style="text-align:center;margin-bottom:50px;"><img src="data:image/png;base64,{encoded}" style="width:100%; object-fit:contain;"/></div>
 </div>
+                    
+
 
 <div style="
     background: linear-gradient(135deg, #fdfdfd, #f0f0f0);
@@ -111,11 +104,12 @@ Architecture découplée en services indépendants.
  </div>
 
  
-""", unsafe_allow_html=True) 
+
+""", unsafe_allow_html=True)
      
 
 
-###  Architecture globale du système --------------------------------------------------------------------------------------------
+###  Pipeline --------------------------------------------------------------------------------------------
     with tabs[1]:
      st.markdown("""
 <div style="
@@ -160,7 +154,6 @@ Architecture découplée en services indépendants.
 **❌ Limites**  
                  
 •	pas de compréhension sémantique  
-•	dépend fortement du preprocessing  
                  
 **✔ LinearSVC**  
                  
@@ -170,12 +163,11 @@ Architecture découplée en services indépendants.
                  
 **❌ Limite critique**  
                  
-•	pas de predict_proba natif  
+•	pas de statistiques de confiance (probabilités) 
                  
 **👉 impact direct sur :**  
                  
 •	absence de score de confiance  
-•	limitation monitoring avancé  
         
  </div>
 <div style="
@@ -223,11 +215,6 @@ Architecture découplée en services indépendants.
 •	meilleure généralisation  
 •	enrichissement sémantique  
                  
-**❌ Inconvénients**  
-                 
-•	pipeline complexe à maintenir  
-•	debugging difficile  
-•	forte dépendance au schéma input  
 </div>
 
  
@@ -326,15 +313,75 @@ MLflow est utilisé comme :
     ">
  
 
-<h5 style="color:#bf0000; margin-top:0;">DAG principal</h5>    
-                 
-•	load  
-•	preprocess  
-•	train  
-•	evaluate  
-•	register_model  
+<h5 style="color:#bf0000; margin-top:0;">Objectif d'Airflow</h5>   
+                    
+Airflow est utilisé comme orchestrateur du pipeline ML afin d'automatiser, planifier et superviser les différentes étapes du cycle de vie du modèle.  
 
-</div>                
+**Valeur ajoutée** :  
+
+•	automatisation des traitements  
+•	exécution reproductible  
+•	traçabilité  
+•	gestion des dépendances entre tâches  
+•	monitoring des exécutions  
+
+</div> 
+<div style="
+    background: linear-gradient(135deg, #fdfdfd, #f0f0f0);
+    padding:20px;
+    border-left:6px solid #bf0000;
+    border-radius:15px;
+    margin: 20px auto;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    width:85%;          
+    ">
+ 
+
+<h5 style="color:#bf0000; margin-top:0;">Description du DAG</h5>         
+
+•	**load_data** : chargement des données brutes  
+•	**preprocess_data** : prétraitement des données  
+•	**train_model** : entraînement du modèle      
+•	**evaluate_model** : évaluation du modèle  
+•	**model registry** : enregistrement du modèle dans MLflow  
+                 
+Chacune de ces tâches est encapsulée dans une fonction Python distincte, ce qui permet de maintenir un code clair et modulaire.   
+Les étapes sont orchestrées dans un DAG (Directed Acyclic Graph) qui définit l'ordre d'exécution et les dépendances entre les tâches.  
+Elles ne démarrent que si la tâche précédente a été exécutée avec succès, assurant ainsi la cohérence du pipeline.  
+                 
+•	une tâche en échec bloque les suivantes  
+•	possibilité de relancer uniquement la tâche concernée  
+•	historique des exécutions conservé  
+</div> 
+                 
+<div style="
+    background: linear-gradient(135deg, #fdfdfd, #f0f0f0);
+    padding:20px;
+    border-left:6px solid #bf0000;
+    border-radius:15px;
+    margin: 20px auto;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    width:85%;          
+    ">
+ 
+
+<h5 style="color:#bf0000; margin-top:0;">Intégration avec MLflow</h5> 
+
+Airflow  
+&nbsp;&nbsp;&nbsp;&nbsp;↓  
+Lance l'entraînement  
+&nbsp;&nbsp;&nbsp;&nbsp;↓  
+MLflow enregistre :  
+- paramètres  
+- métriques  
+- artefacts  
+&nbsp;&nbsp;&nbsp;&nbsp;↓  
+Model Registry  
+                 
+</div>
+                 
 <div style="
     background: linear-gradient(135deg, #fdfdfd, #f0f0f0);
     padding:20px;
@@ -346,37 +393,20 @@ MLflow est utilisé comme :
     width:85%;          
     ">
                  
-<h5 style="color:#bf0000; margin-top:0;">Décision clé : séparation stricte des tâches</h5>    
+<h5 style="color:#bf0000; margin-top:0;">Choix d'architecture</h5>    
                  
 **✔ Avantages**  
                  
-•	maintenabilité  
-•	testabilité  
-•	re-exécution partielle  
+•	standard industriel  
+•	visualisation des workflows  
+•	planification des exécutions  
+•	reprise sur erreur  
                  
-**❌ Inconvénients**  
+**Trade-off**  
                  
-•	overhead orchestration  
-•	complexité debugging multi-tâches  
+Complexité supplémentaire mais gain important en industrialisation et en reproductibilité.  
 </div>
 
-<div style="
-    background: linear-gradient(135deg, #fdfdfd, #f0f0f0);
-    padding:20px;
-    border-left:6px solid #bf0000;
-    border-radius:15px;
-    margin: 20px auto;
-    box-shadow: 0 8px 20px rgba(0,0,0,0.1);
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    width:85%;          
-    ">
-                 
-<h5 style="color:#bf0000; margin-top:0;">Limite actuelle</h5>    
-  
-•	stockage intermédiaire local (/tmp)  
-                 
-**👉 Non scalable (vs S3 / Data Lake)**
-</div>
 
 """, unsafe_allow_html=True) 
      
@@ -459,53 +489,12 @@ POST /predict
 </div>
 
 """, unsafe_allow_html=True) 
+
      
-###  Monitoring — Prometheus & Grafana --------------------------------------------------------------------------------------------
-    with tabs[5]:
-     st.markdown("""
-<div style="
-    background: linear-gradient(135deg, #fdfdfd, #f0f0f0);
-    padding:20px;
-    border-left:6px solid #bf0000;
-    border-radius:15px;
-    margin: 20px auto;
-    box-shadow: 0 8px 20px rgba(0,0,0,0.1);
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    width:85%;          
-    ">
- 
 
-<h5 style="color:#bf0000; margin-top:0;">Métriques suivies</h5>   
-                 
-•	latence API  
-•	taux d’erreur  
-•	nombre requêtes  
-•	santé conteneurs  
-</div>
-
-<div style="
-    background: linear-gradient(135deg, #fdfdfd, #f0f0f0);
-    padding:20px;
-    border-left:6px solid #bf0000;
-    border-radius:15px;
-    margin: 20px auto;
-    box-shadow: 0 8px 20px rgba(0,0,0,0.1);
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    width:85%;          
-    ">
-               
-<h5 style="color:#bf0000; margin-top:0;">Absence de :</h5>  
-                 
-•	drift data  
-•	drift concept  
-•	monitoring modèle  
-
-</div>
-
-""", unsafe_allow_html=True) 
      
 ###  Docker & infrastructure --------------------------------------------------------------------------------------------
-    with tabs[6]:
+    with tabs[5]:
      st.markdown("""
 <div style="
     background: linear-gradient(135deg, #fdfdfd, #f0f0f0);

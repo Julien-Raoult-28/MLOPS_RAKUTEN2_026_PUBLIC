@@ -3,6 +3,7 @@ import streamlit as st
 PAGES = [
     "Objectif et Contexte",
     "Orchestration et Déploiement",
+    "Perspectives",
     "Démonstration du modèle"
 ]
 
