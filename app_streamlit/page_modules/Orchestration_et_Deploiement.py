@@ -63,9 +63,16 @@ button[data-baseweb="tab"][aria-selected="true"] > div {
             font-family: 'Segoe UI';
             width:85%;
 ">
-
+Cette architecture illustre comment les briques MLOps s’articulent pour transformer un pipeline de Machine Learning en système exploitable.  
+                    
 <div style="text-align:center;margin-bottom:50px;"><img src="data:image/png;base64,{encoded}" style="width:100%; object-fit:contain;"/></div>  
- 
+  
+**Vue d’ensemble**  
+  
+•	Une seule machine locale orchestrant trois services : Airflow, MLflow et FastAPI.  
+•	Communication interne via le réseau `mlops-net`.  
+•	Persistance des artefacts et métadonnées dans le volume `mlflow-data`.  
+•	Chaque service est conteneurisé et isolé dans Docker.  
 </div>
                     
 
@@ -80,46 +87,20 @@ button[data-baseweb="tab"][aria-selected="true"] > div {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     width:85%;          
     "> 
-                                 
-<h5 style="color:#bf0000; margin-top:0;">D'un programme Python à un vrai système</h5>     
+                                     
                  
-**Au départ** : un programme Python lancé à la main qui entraîne un modèle et s'arrête là. Ça marche, mais ce n'est ni traçable, ni automatisé, ni déployable.  
+**Flux de données**  
+       
+•	1. Airflow orchestre le pipeline d’entraînement (load → preprocess → train → evaluate → register).   
+•	2. MLflow trace les runs, stocke les artefacts et gère le Model Registry.  
+•	3. FastAPI recharge dynamiquement la version active du modèle via l’alias `production`.  
+•	4. Le client interagit avec l’API pour obtenir des prédictions en temps réel.  
+ 
   
-**Objectif du projet** : transformer ce programme en chaîne MLOps.  
-
-**AVANT / APRÈS** :      
-•	Lancement Script lancé à la main  
-•	Pipeline automatisé (Airflow)  
-•	Suivi des essais  
-•	Aucun Historique centralisé (MLflow)  
-•	Mise à disposition  
-•	Le modèle reste sur la machine  
-•	Modèle exposé en API (FastAPI)  
-•	Environnement  
-  
-**« Ça marche chez moi » Identique partout (Docker)**                
+👉 Airflow et FastAPI ne communiquent jamais directement : leur point de contact unique est MLflow, garant de la cohérence entre expérimentation et exploitation.                
  </div>
 
- <div style="
-    background: linear-gradient(135deg, #fdfdfd, #f0f0f0);
-    padding:20px;
-    border-left:6px solid #bf0000;
-    border-radius:15px;
-    margin: 20px auto;
-    box-shadow: 0 8px 20px rgba(0,0,0,0.1);
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    width:85%;          
-    "> 
-                                 
-<h5 style="color:#bf0000; margin-top:0;">Les 4 briques, et pourquoi</h5>    
-  
-•	**Airflow** — automatise les étapes et permet de les relancer sans tout reprendre.  
-•	**MLflow** — garde la mémoire des essais et gère les versions du modèle.  
-•	**FastAPI** — rend le modèle interrogeable par un simple appel.  
-•	**Docker** — garantit que tout tourne à l'identique, partout.  
-
-</div>
-
+ 
 """, unsafe_allow_html=True)
      
 
