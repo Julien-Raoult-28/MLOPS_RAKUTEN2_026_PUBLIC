@@ -199,312 +199,267 @@ Métriques ciblées :
 """, unsafe_allow_html=True)
         
     with tabs[2]:
-    # ---------------------------------------------------
-    # STYLE PERSONNALISÉ
-    # ---------------------------------------------------
+                # ---------------------------------------------------
+        # STYLE LOCAL TAB 2
+        # ---------------------------------------------------
         st.markdown("""
-    <style>
-        .main-title {
-            font-size: 2.4rem;
-            font-weight: 700;
-            color: #1F4E79;
-            margin-bottom: 0.3rem;
-        }
-        .subtitle {
-            font-size: 1.15rem;
-            color: #555;
-            margin-bottom: 1.2rem;
-        }
-        .section-title {
-            font-size: 1.45rem;
-            font-weight: 600;
-            color: #1F4E79;
-            margin-top: 1.8rem;
-            margin-bottom: 0.6rem;
-        }
-        .box {
-            padding: 1rem;
-            border-radius: 12px;
-            background-color: #F8F9FA;
-            border: 1px solid #E5E7EB;
-            margin-bottom: 1rem;
-        }
-        .small-note {
-            font-size: 0.95rem;
-            color: #666;
-            margin-top: 0.5rem;
-        }
-        .roadmap-box {
-            padding: 1rem;
-            border-radius: 12px;
-            border: 1px solid #D9D9D9;
-            background-color: #FFFFFF;
-            min-height: 260px;
-        }
-    </style>
-    """, unsafe_allow_html=True)
+        <style>
+            .main-title {
+                font-size: 2.4rem;
+                font-weight: 700;
+                color: #1F4E79;
+                margin-bottom: 0.3rem;
+            }
 
-    # ---------------------------------------------------
-    # HEADER
-    # ---------------------------------------------------
-        st.title(":rocket: Perspectives d’amélioration – Projet MLOps Rakuten")
+            .subtitle {
+                font-size: 1.15rem;
+                color: #555;
+                margin-bottom: 1.2rem;
+            }
+
+            .section-title {
+                font-size: 1.55rem;
+                font-weight: 650;
+                color: #1F4E79;
+                margin-top: 2.2rem;
+                margin-bottom: 0.8rem;
+                border-left: 6px solid #1F4E79;
+                padding-left: 0.6rem;
+            }
+
+            .box, .roadmap-box {
+                padding: 1rem;
+                border-radius: 12px;
+                background-color: #FFFFFF;
+                border: 1px solid #E5E7EB;
+                box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+            }
+
+            .small-note {
+                font-size: 0.95rem;
+                color: #666;
+                margin-top: 0.5rem;
+            }
+
+            ul li {
+                margin-bottom: 0.25rem;
+                line-height: 1.45;
+            }
+
+            .roadmap-box {
+                background: linear-gradient(180deg, #FFFFFF 0%, #F7F9FB 100%);
+                min-height: 260px;
+            }
+        </style>
+        """, unsafe_allow_html=True)
+
+        # ---------------------------------------------------
+        # HEADER
+        # ---------------------------------------------------
+        st.title("🚀 Perspectives d’amélioration – Projet MLOps Rakuten")
 
         st.markdown(
-        """
-        <div class="subtitle">
-        Comment faire évoluer notre démonstrateur MLOps vers un système plus industrialisé,
-        plus robuste et plus proche d’un contexte de production ?
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
+            """
+            <div class="subtitle">
+            Comment faire évoluer notre démonstrateur MLOps vers un système plus industrialisé,
+            plus robuste et plus proche d’un contexte de production ?
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
 
-        st.info("""
-    Cette partie montre non seulement ce qu’il reste à faire, mais surtout la trajectoire
-    de montée en maturité du projet.
-    """)
+        st.info(
+            "Cette partie montre non seulement ce qu’il reste à faire, "
+            "mais surtout la trajectoire de montée en maturité du projet."
+        )
 
-    # ---------------------------------------------------
-    # POSITIONNEMENT ACTUEL
-    # ---------------------------------------------------
-    col_a, col_b, col_c = st.columns(3)
+        # ---------------------------------------------------
+        # POSITIONNEMENT ACTUEL
+        # ---------------------------------------------------
+        col_a, col_b, col_c = st.columns(3)
 
-    with col_a:
-        st.metric("Niveau actuel", "Démonstrateur MLOps")
-    with col_b:
-        st.metric("Pipeline industrialisé", "Texte")
-    with col_c:
-        st.metric("Objectif suivant", "Industrialisation")
+        with col_a:
+            st.metric("Niveau actuel", "Démonstrateur MLOps")
+
+        with col_b:
+            st.metric("Pipeline industrialisé", "En construction")
+
+        with col_c:
+            st.metric("Objectif suivant", "Industrialisation")
 
         st.caption(
-        "Positionnement retenu : démonstrateur MLOps avancé en environnement local, "
-        "avec bases solides pour une montée en maturité."
-    )
+            "Positionnement : démonstrateur MLOps local avec bases solides pour montée en maturité."
+        )
 
-    # ---------------------------------------------------
-    # SECTION 1 - CE QUI EST DÉJÀ FAIT
-    # ---------------------------------------------------
-    st.markdown(
-        '<div class="section-title">✔️ 1. Ce que nous avons déjà construit</div>',
-        unsafe_allow_html=True
-    )
+        # ---------------------------------------------------
+        # SECTION 1
+        # ---------------------------------------------------
+        st.markdown('<div class="section-title">✅ 1. Ce que nous avons déjà construit</div>', unsafe_allow_html=True)
 
-    col1, col2 = st.columns(2)
+        col1, col2 = st.columns(2)
 
-    with col1:
-        st.success("""
-**Socle technique déjà en place**
-- Pipeline texte validé
+        with col1:
+            st.success("""
+**Socle technique**
+- Pipeline NLP validé
 - Tracking MLflow
-- Model Registry avec alias `production`
-- API FastAPI pour l’inférence
-- Environnement Docker reproductible
-- Orchestration avec Airflow
+- Model Registry (production)
+- API FastAPI
+- Docker
+- Airflow
 """)
 
-    with col2:
-        st.success("""
-**Qualité logicielle déjà mise en œuvre**
+        with col2:
+            st.success("""
+**Qualité logicielle**
 - Tests unitaires
-- Tests d’intégration
-- Tests end-to-end
-- Mode hybride `run_id / version / production`
-- Cache mémoire des modèles
-- Contrôle d’accès simple par token
+- Tests intégration
+- Tests E2E
+- Mode run_id / version / prod
+- Cache modèle
+- Auth token simple
 """)
 
-    st.markdown(
-        '<div class="small-note"><b>Message clé :</b> nous disposons déjà d’un démonstrateur MLOps complet, cohérent et démontrable en environnement local.</div>',
-        unsafe_allow_html=True
-    )
+        st.markdown(
+            '<div class="small-note"><b>Message clé :</b> démonstrateur complet et cohérent.</div>',
+            unsafe_allow_html=True
+        )
 
-    # ---------------------------------------------------
-    # SECTION 2 - CE QUI MANQUE ENCORE
-    # ---------------------------------------------------
-    st.markdown(
-        '<div class="section-title">🟡 2. Ce qu’il manque pour aller vers une production plus mature</div>',
-        unsafe_allow_html=True
-    )
+        # ---------------------------------------------------
+        # SECTION 2
+        # ---------------------------------------------------
+        st.markdown('<div class="section-title">🟡 2. Ce qu’il manque pour aller vers une production</div>', unsafe_allow_html=True)
 
-    col1, col2, col3 = st.columns(3)
+        col1, col2, col3 = st.columns(3)
 
-    with col1:
-        st.warning("""
-**Industrialisation**
+        with col1:
+            st.warning("""
+**🔄 Industrialisation**
 - CI/CD
-- automatisation complète des tests
-- build automatique des images
-- déploiement automatisé
+- Tests automatisés
+- Docker build auto
+- Déploiement auto
 """)
 
-    with col2:
-        st.warning("""
-**Observabilité**
-- monitoring de l’API
-- suivi des latences
-- suivi des erreurs
-- alertes
-- logs centralisés
+        with col2:
+            st.warning("""
+**📊 Observabilité**
+- Monitoring API
+- Latence
+- Logs centralisés
+- Alerting
 """)
 
-    with col3:
-        st.warning("""
-**Sécurité & infrastructure**
-- gestion industrielle des secrets
-- configuration multi-environnements
-- backend MLflow plus robuste
-- meilleure montée en charge
+        with col3:
+            st.warning("""
+**🔐 Infrastructure**
+- Secrets management
+- Multi-env
+- MLflow robuste
+- Scalabilité
 """)
 
-    st.markdown(
-        '<div class="small-note"><b>Message clé :</b> les briques manquantes sont clairement identifiées ; elles relèvent d’une montée en maturité et non d’un changement de direction technique.</div>',
-        unsafe_allow_html=True
-    )
+        st.markdown(
+            '<div class="small-note"><b>Message clé :</b> évolution naturelle vers industrialisation.</div>',
+            unsafe_allow_html=True
+        )
 
-    # ---------------------------------------------------
-    # SECTION 3 - ROADMAP
-    # ---------------------------------------------------
-    st.markdown(
-        '<div class="section-title">🌍 3. Roadmap d’évolution</div>',
-        unsafe_allow_html=True
-    )
+        # ---------------------------------------------------
+        # SECTION 3
+        # ---------------------------------------------------
+        st.markdown('<div class="section-title">🗺️ 3. Roadmap</div>', unsafe_allow_html=True)
 
-    st.write("Nous pouvons représenter l’évolution du projet en **trois étapes de maturité MLOps** :")
+        st.info(
+            "Progression : démonstrateur → industrialisation → production"
+        )
 
-    st.info(
-        "Cette roadmap illustre une progression réaliste : partir d’un démonstrateur local stable, "
-        "puis renforcer l’automatisation, l’observabilité et la robustesse."
-    )
+        step1, step2, step3 = st.columns(3)
 
-    step1, step2, step3 = st.columns(3)
+        with step1:
+            st.markdown("""
+            <div class="roadmap-box">
+            <h4>✅ Démonstrateur</h4>
+            <ul>
+            <li>ML pipeline</li>
+            <li>MLflow</li>
+            <li>API</li>
+            <li>Docker</li>
+            </ul>
+            </div>
+            """, unsafe_allow_html=True)
 
-    with step1:
-        st.markdown("""
-        <div class="roadmap-box">
-        <h4>:✅ Étape 1 — Démonstrateur</h4>
-        <ul>
-        <li>modèle texte validé</li>
-        <li>tracking MLflow</li>
-        <li>registry</li>
-        <li>API FastAPI</li>
-        <li>tests</li>
-        <li>Docker</li>
-        <li>Airflow</li>
-        </ul>
-        </div>
-        """, unsafe_allow_html=True)
+        with step2:
+            st.markdown("""
+            <div class="roadmap-box">
+            <h4>⚙️ Industrialisation</h4>
+            <ul>
+            <li>CI/CD</li>
+            <li>Tests auto</li>
+            <li>Secrets</li>
+            <li>Logs</li>
+            </ul>
+            </div>
+            """, unsafe_allow_html=True)
 
-    with step2:
-        st.markdown("""
-        <div class="roadmap-box">
-        <h4>🟡 Étape 2 — Industrialisation</h4>
-        <ul>
-        <li>CI/CD</li>
-        <li>gestion des secrets</li>
-        <li>standardisation des environnements</li>
-        <li>logs plus structurés</li>
-        <li>durcissement applicatif</li>
-        </ul>
-        </div>
-        """, unsafe_allow_html=True)
+        with step3:
+            st.markdown("""
+            <div class="roadmap-box">
+            <h4>🚀 Production</h4>
+            <ul>
+            <li>Monitoring</li>
+            <li>Scalabilité</li>
+            <li>Alerting</li>
+            <li>Gouvernance</li>
+            </ul>
+            </div>
+            """, unsafe_allow_html=True)
 
-    with step3:
-        st.markdown("""
-        <div class="roadmap-box">
-        <h4>🚀 Étape 3 — Production</h4>
-        <ul>
-        <li>monitoring & alerting</li>
-        <li>infrastructure plus scalable</li>
-        <li>gouvernance de versions</li>
-        <li>observabilité complète</li>
-        <li>extension vers d’autres modèles</li>
-        </ul>
-        </div>
-        """, unsafe_allow_html=True)
+        st.progress(70)
 
-    st.progress(70)
+        st.caption(
+            "Position actuel : base solide prête à industrialisation"
+        )
 
-    st.caption(
-        "Positionnement actuel estimé : démonstrateur MLOps avancé, avec fondations solides pour aller vers l’industrialisation."
-    )
+        # ---------------------------------------------------
+        # SECTION 4
+        # ---------------------------------------------------
+        st.markdown('<div class="section-title">🎯 4. Priorités</div>', unsafe_allow_html=True)
 
-    # ---------------------------------------------------
-    # SECTION 4 - PRIORITÉS
-    # ---------------------------------------------------
-    st.markdown(
-        '<div class="section-title">🎯 4. Priorités recommandées</div>',
-        unsafe_allow_html=True
-    )
+        col1, col2 = st.columns(2)
 
-    priority1, priority2 = st.columns(2)
+        with col1:
+            st.markdown("""
+            <div class="box">
+            <b>Court terme</b><br>
+            - CI/CD<br>
+            - Secrets<br>
+            - Logs<br>
+            - Tests
+            </div>
+            """, unsafe_allow_html=True)
 
-    with priority1:
+        with col2:
+            st.markdown("""
+            <div class="box">
+            <b>Moyen terme</b><br>
+            - Monitoring<br>
+            - MLflow robuste<br>
+            - Séparation env<br>
+            - Scalabilité
+            </div>
+            """, unsafe_allow_html=True)
+
+        # ---------------------------------------------------
+        # SECTION 5
+        # ---------------------------------------------------
+        st.markdown('<div class="section-title">💬 5. Conclusion</div>', unsafe_allow_html=True)
+
         st.markdown("""
         <div class="box">
-        <b>Priorités court terme</b><br><br>
-        1. Automatiser les tests via une CI/CD<br>
-        2. Externaliser les secrets<br>
-        3. Structurer les logs applicatifs<br>
-        4. Consolider la visibilité des métriques MLflow
+        Le projet est déjà un démonstrateur MLOps complet.
+        <br><br>
+        La prochaine étape logique est l’industrialisation :
+        automatisation, monitoring et robustesse.
         </div>
         """, unsafe_allow_html=True)
 
-    with priority2:
-        st.markdown("""
-        <div class="box">
-        <b>Priorités moyen terme</b><br><br>
-        1. Ajouter monitoring et alertes<br>
-        2. Renforcer l’infrastructure MLflow<br>
-        3. Préparer une séparation dev / test / prod<br>
-        4. Étendre le périmètre si besoin
-        </div>
-        """, unsafe_allow_html=True)
-
-    # ---------------------------------------------------
-    # SECTION 5 - MESSAGE FINAL JURY
-    # ---------------------------------------------------
-    st.markdown(
-        '<div class="section-title">💬 5. Message final pour le jury</div>',
-        unsafe_allow_html=True
-    )
-
-    st.markdown("""
-    <div class="box">
-    Notre objectif n’était pas de tout faire en une seule étape, mais de poser des bases MLOps solides :
-    un modèle versionné, exploitable, testé et orchestré.
-    <br><br>
-    La suite logique du projet consiste maintenant à renforcer l’automatisation, l’observabilité et la sécurité
-    afin de transformer ce démonstrateur local en une plateforme plus mature.
-    </div>
-    """, unsafe_allow_html=True)
-
-    # ---------------------------------------------------
-    # SECTION 6 - FORMULATIONS ORALES
-    # ---------------------------------------------------
-    st.markdown(
-        '<div class="section-title">🎤 6. Formulations orales possibles</div>',
-        unsafe_allow_html=True
-    )
-
-    st.code(
-        """1. "Nous avons construit les fondations MLOps du projet."
-2. "La prochaine étape n’est plus la faisabilité, mais la montée en maturité."
-3. "Nous savons précisément ce qu’il manque pour aller vers une production plus robuste."
-4. "Notre démonstrateur local est déjà structuré ; l’enjeu suivant est l’industrialisation."
-5. "Notre objectif n’était pas de tout faire, mais de poser les bonnes bases."
-""",
-        language="text"
-    )
-
-    # ---------------------------------------------------
-    # SECTION 7 - CONCLUSION
-    # ---------------------------------------------------
-    st.markdown(
-        '<div class="section-title">✅ 7. Conclusion</div>',
-        unsafe_allow_html=True
-    )
-
-    st.success(
-        "Le projet est déjà à un bon niveau de maturité pour un démonstrateur MLOps local. "
-        "Les perspectives identifiées permettent de montrer une trajectoire crédible vers une solution plus industrialisée."
-    )
