@@ -39,3 +39,14 @@ Vérifier les modifications :
 git status
 
 Tu verras les fichiers récupérés comme modifiés dans ton working tree.
+
+
+
+git remote -v
+git branch
+git add streamlit_app.py
+git add app_streamlit/
+git commit -m "maj"
+git push origin main
+
+
