@@ -64,12 +64,8 @@ button[data-baseweb="tab"][aria-selected="true"] > div {
             width:85%;
 ">
 
-<h4 style="color:#bf0000;text-align:center;">Architecture du projet</h4>
 <div style="text-align:center;margin-bottom:50px;"><img src="data:image/png;base64,{encoded}" style="width:100%; object-fit:contain;"/></div>  
-  
-•	1 machine, 3 services orchestrés par `docker compose`  
-•	Entraînement (offline) **découplé** de l'inférence (online)  
-•	MLflow = point de contact unique → traçabilité  
+ 
 </div>
                     
 
@@ -85,29 +81,44 @@ button[data-baseweb="tab"][aria-selected="true"] > div {
     width:85%;          
     "> 
                                  
-<h5 style="color:#bf0000; margin-top:0;">Décision structurante : architecture microservices</h5>     
+<h5 style="color:#bf0000; margin-top:0;">D'un programme Python à un vrai système</h5>     
                  
-**✔ Choix effectué**   
-Architecture découplée en services indépendants.  
-                  
-**✔ Avantages**  
-                 
-•	scalabilité indépendante des composants  
-•	simulation réaliste d’un système industriel  
-•	meilleure maintenabilité  
-•	séparation des responsabilités  
-                 
-**❌ Inconvénients**  
-                 
-•   complexité réseau Docker  
-•	debugging distribué difficile  
-•	latence inter-services  
-                 
-**👉 Trade-off assumé : complexité ↔ réalisme industriel**
-             
+**Au départ** : un programme Python lancé à la main qui entraîne un modèle et s'arrête là. Ça marche, mais ce n'est ni traçable, ni automatisé, ni déployable.  
+  
+**Objectif du projet** : transformer ce programme en chaîne MLOps.  
+
+**AVANT / APRÈS** :      
+•	Lancement Script lancé à la main  
+•	Pipeline automatisé (Airflow)  
+•	Suivi des essais  
+•	Aucun Historique centralisé (MLflow)  
+•	Mise à disposition  
+•	Le modèle reste sur la machine  
+•	Modèle exposé en API (FastAPI)  
+•	Environnement  
+  
+**« Ça marche chez moi » Identique partout (Docker)**                
  </div>
 
- 
+ <div style="
+    background: linear-gradient(135deg, #fdfdfd, #f0f0f0);
+    padding:20px;
+    border-left:6px solid #bf0000;
+    border-radius:15px;
+    margin: 20px auto;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    width:85%;          
+    "> 
+                                 
+<h5 style="color:#bf0000; margin-top:0;">Les 4 briques, et pourquoi</h5>    
+  
+•	**Airflow** — automatise les étapes et permet de les relancer sans tout reprendre.  
+•	**MLflow** — garde la mémoire des essais et gère les versions du modèle.  
+•	**FastAPI** — rend le modèle interrogeable par un simple appel.  
+•	**Docker** — garantit que tout tourne à l'identique, partout.  
+
+</div>
 
 """, unsafe_allow_html=True)
      
@@ -226,7 +237,11 @@ Architecture découplée en services indépendants.
 
 ###  MLflow — tracking et gouvernance modèle --------------------------------------------------------------------------------------------
     with tabs[2]:
-     st.markdown("""
+        import base64
+        with open("app_streamlit/assets/images/MLFLOW.png", "rb") as img_file:
+                img_bytes = img_file.read()
+                encoded2 = base64.b64encode(img_bytes).decode()
+        st.markdown(f"""
 <div style="
     background: linear-gradient(135deg, #fdfdfd, #f0f0f0);
     padding:20px;
@@ -237,95 +252,40 @@ Architecture découplée en services indépendants.
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     width:85%;          
     ">
-<table style="width:100%; margin-top:10px; border-collapse: collapse;">
-    <tr>
-        <th style="text-align:center; padding:8px;">Tracking</th>
-        <th style="text-align:center; padding:8px;">Registry</th>
-        <th style="text-align:center; padding:8px;">Gouvernance</th>
-    </tr>
-    <tr><td style="text-align:center;">runs - params - métriques</td><td style="text-align:center;">`rakuten_classifier` versionné</td><td style="text-align:center;"> alias `@production`</td></tr>
-</table>                
-
-                 
-•	SQLite (métadonnées) + /mlruns (artefacts)  
-•	Volume mlflow-data → persistant  
-
-
- `UI MLflow → http://localhost:8089`                
- </div>                
-<div style="
-    background: linear-gradient(135deg, #fdfdfd, #f0f0f0);
-    padding:20px;
-    border-left:6px solid #bf0000;
-    border-radius:15px;
-    margin: 20px auto;
-    box-shadow: 0 8px 20px rgba(0,0,0,0.1);
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    width:85%;          
-    ">
- 
-
-<h5 style="color:#bf0000; margin-top:0;">Rôle</h5>    
-                 
-MLflow est utilisé comme :  
-                 
-•	système de tracking  
-•	registre de modèles  
-•	historique des expérimentations  
-
- </div>
-<div style="
-    background: linear-gradient(135deg, #fdfdfd, #f0f0f0);
-    padding:20px;
-    border-left:6px solid #bf0000;
-    border-radius:15px;
-    margin: 20px auto;
-    box-shadow: 0 8px 20px rgba(0,0,0,0.1);
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    width:85%;          
-    ">
- 
-
-<h5 style="color:#bf0000; margin-top:0;">Décision clé : Model Registry + alias production</h5>      
-                               
-**✔ Avantages**  
-                 
-•	découplage train / serve  
-•	rollback possible  
-•	versioning propre  
-                 
-**❌ Inconvénients**  
-                 
-•	dépendance forte à MLflow server  
-•	latence chargement modèle  
- </div>
-<div style="
-    background: linear-gradient(135deg, #fdfdfd, #f0f0f0);
-    padding:20px;
-    border-left:6px solid #bf0000;
-    border-radius:15px;
-    margin: 20px auto;
-    box-shadow: 0 8px 20px rgba(0,0,0,0.1);
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    width:85%;          
-    ">
- 
-
-<h5 style="color:#bf0000; margin-top:0;">Point critique ingénierie</h5>     
-                 
-**👉 Le modèle embarque du code custom :** code_paths=["/opt/airflow/src"]
+<h5 style="color:#bf0000; margin-top:0;">MLflow, la mémoire du projet</h5>   
   
-**✔ Avantage**  
-                 
-•	reproductibilité totale  
-                 
-**❌ Inconvénient**  
-                 
-•	couplage modèle ↔ code source  
-                 
-**👉 Trade-off classique MLOps réel**
-</div>                
+Quand on entraîne plusieurs versions d'un modèle, une question revient : « laquelle est la meilleure, et laquelle est en production ? »  
+Sans outil, la réponse se perd. MLflow enregistre automatiquement chaque entraînement et son résultat, et garde tout au même endroit, consultable.  
+  
+•	On retrouve d'un coup d'œil quelle version a donné le meilleur score.  
+•	Plus de fichiers modele_final_v2_vraiment_final.pkl.  
 
+<div style="text-align:center;margin-bottom:50px;"><img src="data:image/png;base64,{encoded2}" style="width:100%; object-fit:contain;"/></div>                              
+ </div>  
+
+ <div style="
+    background: linear-gradient(135deg, #fdfdfd, #f0f0f0);
+    padding:20px;
+    border-left:6px solid #bf0000;
+    border-radius:15px;
+    margin: 20px auto;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    width:85%;          
+    ">
+<h5 style="color:#bf0000; margin-top:0;">Du modèle entraîné au modèle servi</h5>          
+  
+MLflow ne fait pas que noter les résultats : il gère les versions du modèle  
+Entraînement  →  version enregistrée (v1, v2, v3…)  
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;↓   
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;promue en « Production »  
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;↓  
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;l'API utilise cette version   
+  
+**Le point clé : l'API ne pointe jamais vers un fichier en dur.**   
+Elle demande simplement « le modèle en Production ».   
+Changer de modèle = promouvoir une nouvelle version dans MLflow, **sans toucher au code de l'API.**
+</div>
 """, unsafe_allow_html=True) 
      
 ###  Airflow — orchestration ML --------------------------------------------------------------------------------------------
@@ -454,75 +414,14 @@ Complexité supplémentaire mais gain important en industrialisation et en repro
     width:85%;          
     ">  
                  
-**2 routes** :   
+<h5 style="color:#bf0000; margin-top:0;">Rendre le modèle utilisable</h5> 
 
-•	  `POST /predict` → catégorie + version utilisée  
-•	  `GET /models` → versions disponibles    
-
- **Choix du modèle** :  
-
-•	  **3 façons de choisir le modèle** : run précis · version · production (défaut)  
-•	  **Cache RAM** → ~10-15 ms / requête  
-•	  **Swagger auto** → http://localhost:8000/docs  
-                 
-
-`{ `   
-`"designation": "...",`  
-`"description": "...",`    
-`"model_version": "2"`    
-`}`   
-language=`json`  
-                 
-</div>
-                 
-<div style="
-    background: linear-gradient(135deg, #fdfdfd, #f0f0f0);
-    padding:20px;
-    border-left:6px solid #bf0000;
-    border-radius:15px;
-    margin: 20px auto;
-    box-shadow: 0 8px 20px rgba(0,0,0,0.1);
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    width:85%;          
-    ">
- 
-
-<h5 style="color:#bf0000; margin-top:0;">Design</h5>  
-                 
-**Endpoint :**  
-                   
-POST /predict  
+Un modèle n'a de valeur que s'il est **interrogeable**. L'API est la porte d'entrée : on lui envoie un texte produit, elle renvoie une catégorie.  
+On utilise FastAPI, qui apporte :  
   
-**Modes :**    
-                 
-•	production (MLflow registry)  
-•	run_id (debug modèle)  
-</div>
-
-<div style="
-    background: linear-gradient(135deg, #fdfdfd, #f0f0f0);
-    padding:20px;
-    border-left:6px solid #bf0000;
-    border-radius:15px;
-    margin: 20px auto;
-    box-shadow: 0 8px 20px rgba(0,0,0,0.1);
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    width:85%;          
-    ">
- 
-
-<h5 style="color:#bf0000; margin-top:0;">Décision clé : API hybride</h5>    
-                 
-**✔ Avantages**  
-                 
-•	A/B testing possible  
-•	debug facilité  
-•	flexibilité forte  
-                 
-**❌ Inconvénients**  
-                 
-•	complexité utilisateur  
-•	risque erreur de modèle  
+•	la **vérification automatique** des données reçues,
+•	une **documentation interactive** générée toute seule (/docs),
+•	de bonnes **performances**.                
 </div>
                  
 <div style="
@@ -534,22 +433,69 @@ POST /predict
     box-shadow: 0 8px 20px rgba(0,0,0,0.1);
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     width:85%;          
-    ">
+    ">  
                  
-<h5 style="color:#bf0000; margin-top:0;">Sécurité</h5>    
+<h5 style="color:#bf0000; margin-top:0;">Les points d'accès</h5> 
+  
+<table style="width:100%; margin-top:10px; border-collapse: collapse;">
+    <tr>
+        <th style="text-align:center; padding:8px;">Méthode</th>
+        <th style="text-align:center; padding:8px;">Adresse</th>
+        <th style="text-align:center; padding:8px;">Rôle</th>
+    </tr>
+    <tr>
+        <td style="text-align:center;">GET</td>
+        <td style="text-align:center;">/</td>
+        <td style="text-align:center;">Vérifie que le service répond</td>
+    </tr>
+    <tr>
+        <td style="text-align:center;">GET</td>
+        <td style="text-align:center;">/models</td>
+        <td style="text-align:center;">affiche la liste des modèles disponibles</td>
+    </tr>
+    <tr>
+        <td style="text-align:center;">GETtd>
+        <td style="text-align:center;">/predict</td>
+        <td style="text-align:center;">Renvoie la catégorie d'un produit</td>
+    </tr>
+</table> 
+
+**Exemple d'appel** (POST /predict) :  
+json  
+<pre><code>{  
+  "designation": "Coque silicone iPhone 13 transparente",  
+  "description": "Protection antichoc, compatible recharge sans fil"  
+}</code></pre>  
                  
-•	token HTTP (x-token)  
-•	validation Pydantic  
-•	gestion erreurs centralisée  
-                 
-**Limite**  
-                 
-•	pas de JWT / OAuth2  
-                 
-**👉 Choix volontaire pédagogique**  
+**Réponse** :    
+json   
+<pre><code>{  
+  "prediction_code": 1280,  
+  "confidence": 0.94,  
+  "model_version": "4"  
+}</code></pre>               
 
 </div>
+                 
+<div style="
+    background: linear-gradient(135deg, #fdfdfd, #f0f0f0);
+    padding:20px;
+    border-left:6px solid #bf0000;
+    border-radius:15px;
+    margin: 20px auto;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    width:85%;          
+    ">  
+                 
+<h5 style="color:#bf0000; margin-top:0;">Un modèle toujours à jour</h5> 
+                  
+L'API **ne contient aucun modèle en dur**. Au démarrage, elle récupère depuis MLflow la version marquée « Production ».
 
+•	Déployer un nouveau modèle = le promouvoir dans MLflow. Rien à redéployer côté API.
+•	Le champ `model_version` dans chaque réponse assure la traçabilité : on sait toujours quel modèle a produit quelle prédiction.
+
+</div>
 """, unsafe_allow_html=True) 
 
      
@@ -568,97 +514,47 @@ POST /predict
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     width:85%;          
     ">
-<h5 style="color:#bf0000; margin-top:0;">
-    Infrastructure reproductible — <span style="color:green; font-size:0.85em;">docker compose up</span>
-</h5>
- <table style="width:100%; margin-top:10px; border-collapse: collapse;">
+<h5 style="color:#bf0000; margin-top:0;">Pourquoi Docker</h5> 
+                 
+Le problème classique — « ça marche sur ma machine » — disparaît avec Docker : l'environnement complet (système, dépendances, versions) est **figé dans une image reproductible** qui tourne à l'identique partout.  
+</div>
+
+<div style="
+    background: linear-gradient(135deg, #fdfdfd, #f0f0f0);
+    padding:20px;
+    border-left:6px solid #bf0000;
+    border-radius:15px;
+    margin: 20px auto;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    width:85%;          
+    ">
+                 
+<h5 style="color:#bf0000; margin-top:0;">Plusieurs services qui coopèrent</h5> 
+
+Le projet n'est pas un seul conteneur, mais **plusieurs services coordonnés** par `docker-compose` :
+                               
+
+<table style="width:100%; margin-top:10px; border-collapse: collapse;">
     <tr>
         <th style="text-align:center; padding:8px;">Service</th>
         <th style="text-align:center; padding:8px;">Rôle</th>
-        <th style="text-align:center; padding:8px;">Port</th>
     </tr>
     <tr>
-        <td style="text-align:center;">mlflow</td>
-        <td style="text-align:center;">tracking + registry</td>
-        <td style="text-align:center;">8089</td>
+        <td style="text-align:center;">AIRFLOW</td>
+        <td style="text-align:center;">Automatise le pipeline</td>
     </tr>
     <tr>
-        <td style="text-align:center;">api</td>
-        <td style="text-align:center;">inférence</td>
-        <td style="text-align:center;">8000</td>
+        <td style="text-align:center;">MLFLOW</td>
+        <td style="text-align:center;">Suit les essais et stocke les versions</td>
     </tr>
     <tr>
-        <td style="text-align:center;">airflow</td>
-        <td style="text-align:center;">entraînement</td>
-        <td style="text-align:center;">8082</td>
+        <td style="text-align:center;">API</td>
+        <td style="text-align:center;">Sert le modèle (FastAPI)</td>
     </tr>
-</table>  
+</table> 
                  
-•	Réseau `mlops-net` : services joignables par nom  
-•	Volume `mlflow-data` : persistance  
-•	`.env` : ports & RAM configurables     
-                                              
-</div>
-                                  
-<div style="
-    background: linear-gradient(135deg, #fdfdfd, #f0f0f0);
-    padding:20px;
-    border-left:6px solid #bf0000;
-    border-radius:15px;
-    margin: 20px auto;
-    box-shadow: 0 8px 20px rgba(0,0,0,0.1);
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    width:85%;          
-    ">
- 
+**Une seule commande lance tout** : `docker-compose up`. Aucune installation Python requise pour faire tourner la chaîne.
 
-<h5 style="color:#bf0000; margin-top:0;">Décision : Docker Compose full stack</h5>   
-                 
-**Services :**  
-                 
-•	API  
-•	Airflow  
-•	MLflow  
-•	Prometheus  
-•	Grafana  
 </div>
-<div style="
-    background: linear-gradient(135deg, #fdfdfd, #f0f0f0);
-    padding:20px;
-    border-left:6px solid #bf0000;
-    border-radius:15px;
-    margin: 20px auto;
-    box-shadow: 0 8px 20px rgba(0,0,0,0.1);
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    width:85%;          
-    ">
- 
-
-<h5 style="color:#bf0000; margin-top:0;">✔ Avantages</h5>   
-
-•	reproductibilité totale  
-•	onboarding simplifié  
-•	environnement standardisé  
-                   
-</div>
-</div>
-<div style="
-    background: linear-gradient(135deg, #fdfdfd, #f0f0f0);
-    padding:20px;
-    border-left:6px solid #bf0000;
-    border-radius:15px;
-    margin: 20px auto;
-    box-shadow: 0 8px 20px rgba(0,0,0,0.1);
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    width:85%;          
-    ">
- 
-
-<h5 style="color:#bf0000; margin-top:0;">❌ Inconvénients</h5>     
-                 
-•	consommation RAM élevée  
-•	startup lent  
-•	debugging réseau complexe  
-</div>
-
 """, unsafe_allow_html=True) 
