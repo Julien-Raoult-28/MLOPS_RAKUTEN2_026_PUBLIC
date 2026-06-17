@@ -48,7 +48,7 @@ button[data-baseweb="tab"][aria-selected="true"] > div {
 ###  Architecture globale du système --------------------------------------------------------------------------------------------
     with tabs[0]: 
         import base64
-        with open("app_streamlit/assets/images/architecture1.png", "rb") as img_file:
+        with open("app_streamlit/assets/images/architecture2.png", "rb") as img_file:
             img_bytes = img_file.read()
             encoded = base64.b64encode(img_bytes).decode()
         st.markdown(f"""
@@ -65,7 +65,11 @@ button[data-baseweb="tab"][aria-selected="true"] > div {
 ">
 
 <h4 style="color:#bf0000;text-align:center;">Architecture du projet</h4>
-<div style="text-align:center;margin-bottom:50px;"><img src="data:image/png;base64,{encoded}" style="width:100%; object-fit:contain;"/></div>
+<div style="text-align:center;margin-bottom:50px;"><img src="data:image/png;base64,{encoded}" style="width:100%; object-fit:contain;"/></div>  
+  
+•	1 machine, 3 services orchestrés par `docker compose`  
+•	Entraînement (offline) **découplé** de l'inférence (online)  
+•	MLflow = point de contact unique → traçabilité  
 </div>
                     
 
@@ -223,6 +227,32 @@ Architecture découplée en services indépendants.
 ###  MLflow — tracking et gouvernance modèle --------------------------------------------------------------------------------------------
     with tabs[2]:
      st.markdown("""
+<div style="
+    background: linear-gradient(135deg, #fdfdfd, #f0f0f0);
+    padding:20px;
+    border-left:6px solid #bf0000;
+    border-radius:15px;
+    margin: 20px auto;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    width:85%;          
+    ">
+<table style="width:100%; margin-top:10px; border-collapse: collapse;">
+    <tr>
+        <th style="text-align:center; padding:8px;">Tracking</th>
+        <th style="text-align:center; padding:8px;">Registry</th>
+        <th style="text-align:center; padding:8px;">Gouvernance</th>
+    </tr>
+    <tr><td style="text-align:center;">runs - params - métriques</td><td style="text-align:center;">`rakuten_classifier` versionné</td><td style="text-align:center;"> alias `@production`</td></tr>
+</table>                
+
+                 
+•	SQLite (métadonnées) + /mlruns (artefacts)  
+•	Volume mlflow-data → persistant  
+
+
+ `UI MLflow → http://localhost:8089`                
+ </div>                
 <div style="
     background: linear-gradient(135deg, #fdfdfd, #f0f0f0);
     padding:20px;
@@ -422,6 +452,38 @@ Complexité supplémentaire mais gain important en industrialisation et en repro
     box-shadow: 0 8px 20px rgba(0,0,0,0.1);
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     width:85%;          
+    ">  
+                 
+**2 routes** :   
+
+•	  `POST /predict` → catégorie + version utilisée  
+•	  `GET /models` → versions disponibles    
+
+ **Choix du modèle** :  
+
+•	  **3 façons de choisir le modèle** : run précis · version · production (défaut)  
+•	  **Cache RAM** → ~10-15 ms / requête  
+•	  **Swagger auto** → http://localhost:8000/docs  
+                 
+
+`{ `   
+`"designation": "...",`  
+`"description": "...",`    
+`"model_version": "2"`    
+`}`   
+language=`json`  
+                 
+</div>
+                 
+<div style="
+    background: linear-gradient(135deg, #fdfdfd, #f0f0f0);
+    padding:20px;
+    border-left:6px solid #bf0000;
+    border-radius:15px;
+    margin: 20px auto;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    width:85%;          
     ">
  
 
@@ -496,6 +558,48 @@ POST /predict
 ###  Docker & infrastructure --------------------------------------------------------------------------------------------
     with tabs[5]:
      st.markdown("""
+<div style="
+    background: linear-gradient(135deg, #fdfdfd, #f0f0f0);
+    padding:20px;
+    border-left:6px solid #bf0000;
+    border-radius:15px;
+    margin: 20px auto;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    width:85%;          
+    ">
+<h5 style="color:#bf0000; margin-top:0;">
+    Infrastructure reproductible — <span style="color:green; font-size:0.85em;">docker compose up</span>
+</h5>
+ <table style="width:100%; margin-top:10px; border-collapse: collapse;">
+    <tr>
+        <th style="text-align:center; padding:8px;">Service</th>
+        <th style="text-align:center; padding:8px;">Rôle</th>
+        <th style="text-align:center; padding:8px;">Port</th>
+    </tr>
+    <tr>
+        <td style="text-align:center;">mlflow</td>
+        <td style="text-align:center;">tracking + registry</td>
+        <td style="text-align:center;">8089</td>
+    </tr>
+    <tr>
+        <td style="text-align:center;">api</td>
+        <td style="text-align:center;">inférence</td>
+        <td style="text-align:center;">8000</td>
+    </tr>
+    <tr>
+        <td style="text-align:center;">airflow</td>
+        <td style="text-align:center;">entraînement</td>
+        <td style="text-align:center;">8082</td>
+    </tr>
+</table>  
+                 
+•	Réseau `mlops-net` : services joignables par nom  
+•	Volume `mlflow-data` : persistance  
+•	`.env` : ports & RAM configurables     
+                                              
+</div>
+                                  
 <div style="
     background: linear-gradient(135deg, #fdfdfd, #f0f0f0);
     padding:20px;
