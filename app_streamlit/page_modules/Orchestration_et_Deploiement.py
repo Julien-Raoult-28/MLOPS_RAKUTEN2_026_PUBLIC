@@ -63,7 +63,11 @@ button[data-baseweb="tab"][aria-selected="true"] > div {
             font-family: 'Segoe UI';
             width:85%;
 ">
-Cette architecture illustre comment les briques MLOps s’articulent pour transformer un pipeline de Machine Learning en système exploitable.  
+Cette architecture illustre comment les briques MLOps s’articulent pour transformer un pipeline de Machine Learning en système exploitable. 
+                    
+  
+  
+                    
                     
 <div style="text-align:center;margin-bottom:50px;"><img src="data:image/png;base64,{encoded}" style="width:100%; object-fit:contain;"/></div>  
   
