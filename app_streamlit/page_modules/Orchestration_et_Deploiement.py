@@ -387,7 +387,11 @@ Complexité supplémentaire mais gain important en industrialisation et en repro
      
 ###  FastAPI — serving ML --------------------------------------------------------------------------------------------
     with tabs[4]:
-     st.markdown("""
+        import base64
+        with open("app_streamlit/assets/images/api.png", "rb") as img_file:
+                img_bytes = img_file.read()
+                encoded3 = base64.b64encode(img_bytes).decode()
+        st.markdown(f"""
 <div style="
     background: linear-gradient(135deg, #fdfdfd, #f0f0f0);
     padding:20px;
@@ -399,16 +403,13 @@ Complexité supplémentaire mais gain important en industrialisation et en repro
     width:85%;          
     ">  
                  
-<h5 style="color:#bf0000; margin-top:0;">Rendre le modèle utilisable</h5> 
+<h5 style="color:#bf0000; margin-top:0;text-align:center;">Schéma FastAPI MLOps Rakuten</h5>  
+                    
+<div style="text-align:center;margin-bottom:50px;"><img src="data:image/png;base64,{encoded3}" style="width:100%; object-fit:contain;"/></div> 
 
-Un modèle n'a de valeur que s'il est **interrogeable**. L'API est la porte d'entrée : on lui envoie un texte produit, elle renvoie une catégorie.  
-On utilise FastAPI, qui apporte :  
-  
-•	la **vérification automatique** des données reçues,
-•	une **documentation interactive** générée toute seule (/docs),
-•	de bonnes **performances**.                
+FastAPI est la brique qui rend le modèle réellement exploitable.  
+Elle relie le registre de modèles MLflow à l’usage métier, en servant les prédictions en temps réel.  
 </div>
-                 
 <div style="
     background: linear-gradient(135deg, #fdfdfd, #f0f0f0);
     padding:20px;
@@ -418,73 +419,52 @@ On utilise FastAPI, qui apporte :
     box-shadow: 0 8px 20px rgba(0,0,0,0.1);
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     width:85%;          
-    ">  
+    ">
                  
-<h5 style="color:#bf0000; margin-top:0;">Les points d'accès</h5> 
-  
-<table style="width:100%; margin-top:10px; border-collapse: collapse;">
+
+<div style="margin-top:20px;background-color:#e8f2ff; padding:15px; border-left:4px solid #bf0000; border-radius:5px;">
+    <strong>L’objectif : offrir une API claire, rapide et traçable, capable de servir n’importe quelle version du modèle selon le besoin.</strong>
+</div>
+
+<table style="width:100%; margin-top:10px; border-collapse: collapse;background-color:white;">
     <tr>
-        <th style="text-align:center; padding:8px;">Méthode</th>
-        <th style="text-align:center; padding:8px;">Adresse</th>
-        <th style="text-align:center; padding:8px;">Rôle</th>
+        <th style="text-align:center; padding:8px;">Endpoints principaux</th>
+        <th style="text-align:center; padding:8px;">Mode hybride de chargement</th>
     </tr>
     <tr>
-        <td style="text-align:center;">GET</td>
-        <td style="text-align:center;">/</td>
-        <td style="text-align:center;">Vérifie que le service répond</td>
+        <td style="text-align:left;"><strong>/</strong> : healthcheck</td>
+        <td style="text-align:left;"> Si un `run_id` est fourni → recharge le modèle exact du run</td>
     </tr>
     <tr>
-        <td style="text-align:center;">GET</td>
-        <td style="text-align:center;">/models</td>
-        <td style="text-align:center;">affiche la liste des modèles disponibles</td>
+        <td style="text-align:left;"><strong>/models</strong> : liste des versions disponibles</td>
+        <td style="text-align:left;">Si une `model_version` est précisée → charge cette version spécifique</td>
     </tr>
     <tr>
-        <td style="text-align:center;">GETtd>
-        <td style="text-align:center;">/predict</td>
-        <td style="text-align:center;">Renvoie la catégorie d'un produit</td>
+        <td style="text-align:left;"><strong>/predict</strong> : prédiction en temps réel</td>
+        <td style="text-align:left;">Sinon → utilise la version pointée par l’alias `production`</td>
+    </tr>
+    <tr>
+        <td style="text-align:left;"><strong>Chaque endpoint est documenté via Swagger et testé automatiquement. </strong></td>
+        <td style="text-align:left;"><strong>Ce mode garantit une traçabilité complète entre expérimentation et exploitation.</strong></td>
     </tr>
 </table> 
-
-**Exemple d'appel** (POST /predict) :  
-json  
-<pre><code>{  
-  "designation": "Coque silicone iPhone 13 transparente",  
-  "description": "Protection antichoc, compatible recharge sans fil"  
-}</code></pre>  
                  
-**Réponse** :    
-json   
-<pre><code>{  
-  "prediction_code": 1280,  
-  "confidence": 0.94,  
-  "model_version": "4"  
-}</code></pre>               
-
-</div>
-                 
-<div style="
-    background: linear-gradient(135deg, #fdfdfd, #f0f0f0);
-    padding:20px;
-    border-left:6px solid #bf0000;
-    border-radius:15px;
-    margin: 20px auto;
-    box-shadow: 0 8px 20px rgba(0,0,0,0.1);
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    width:85%;          
-    ">  
-                 
-<h5 style="color:#bf0000; margin-top:0;">Un modèle toujours à jour</h5> 
-                  
-L'API **ne contient aucun modèle en dur**. Au démarrage, elle récupère depuis MLflow la version marquée « Production ».
-
-•	Déployer un nouveau modèle = le promouvoir dans MLflow. Rien à redéployer côté API.
-•	Le champ `model_version` dans chaque réponse assure la traçabilité : on sait toujours quel modèle a produit quelle prédiction.
-
-</div>
+**Exemple de réponse JSON** :  
+<pre><code>{{
+"code": "C123",  
+"libelle": "Accessoires audio",  
+"version": "v2",  
+"run_id": "a1b2c3",  
+"latence_ms": 12.4,  
+"timestamp": "2026-06-17T17:05:00"  
+}}</code></pre>
+   
+  
+**✅ Cette API n’est pas un simple wrapper : elle incarne la séparation entre entraînement et exploitation, avec un service versionné, testé et documenté.**
+</div> 
 """, unsafe_allow_html=True) 
 
-     
-
+   
      
 ###  Docker & infrastructure --------------------------------------------------------------------------------------------
     with tabs[5]:
