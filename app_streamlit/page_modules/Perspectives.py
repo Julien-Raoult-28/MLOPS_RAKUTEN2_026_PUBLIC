@@ -37,14 +37,14 @@ button[data-baseweb="tab"][aria-selected="true"] > div {
 """, unsafe_allow_html=True)
 
     tabs = st.tabs([
+        "🚀\nPerspectives d'améliorations",
         "🏗️\n Industrialisation complète (CI/CD)",
-        "📊\nMonitoring — Prometheus & Grafana",
-        "🚀\nPerspectives d'améliorations"
+        "📊\nMonitoring — Prometheus & Grafana"
     ])
 
 #CI/CD
 
-    with tabs[0]: 
+    with tabs[1]: 
      
         st.markdown("""
 <div style="
@@ -119,7 +119,7 @@ Pipeline cible :
 </div>
 """, unsafe_allow_html=True)
  #  Monitoring (Prometheus / Grafana)     
-    with tabs[1]:
+    with tabs[2]:
 
         st.markdown("""
 <div style="
@@ -198,7 +198,7 @@ Métriques ciblées :
 </div>
 """, unsafe_allow_html=True)
         
-    with tabs[2]:
+    with tabs[0]:
                 # ---------------------------------------------------
         # STYLE LOCAL TAB 2
         # ---------------------------------------------------
