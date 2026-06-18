@@ -379,7 +379,7 @@ Model Registry
 •	planification des exécutions  
 •	reprise sur erreur  
                  
-**Trade-off**  
+**Compromis**  
                  
 Complexité supplémentaire mais gain important en industrialisation et en reproductibilité.  
 </div>
