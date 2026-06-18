@@ -130,7 +130,7 @@ Cette architecture illustre comment les briques MLOps s’articulent pour transf
 •	TF-IDF  
 •	LinearSVC  
                  
-Nous reparti avec notre modèle du projet DS qui avait obtenu un score de 87% sur le challenge Rakuten.
+Nous sommes reparti avec notre modèle du projet DS qui avait obtenu un score de 87% sur le challenge Rakuten.
 
 </div>
 
